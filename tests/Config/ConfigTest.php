@@ -519,6 +519,11 @@ final class ConfigTest extends TestCase
      */
     public function testAStackTraceHidesTheValuesGivenToTheConstructor(): void
     {
+        // Selon le réglage zend.exception_ignore_args du php.ini, une trace
+        // garde ou non les arguments. On demande ici qu'elle les garde : c'est
+        // le cas où un secret pourrait fuir.
+        $previous = ini_set('zend.exception_ignore_args', '0');
+
         try {
             // Un second argument du mauvais type fait échouer le constructeur
             // après qu'il a reçu les valeurs : elles sont donc dans la trace.
@@ -529,6 +534,8 @@ final class ConfigTest extends TestCase
 
             self::assertSame('__construct', $constructorCall['function']);
             self::assertInstanceOf(\SensitiveParameterValue::class, $constructorCall['args'][0] ?? null);
+        } finally {
+            ini_set('zend.exception_ignore_args', $previous === false ? '0' : $previous);
         }
     }
 

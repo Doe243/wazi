@@ -238,16 +238,21 @@ final class EvaluatorTest extends TestCase
     #[DataProvider('magicMethodCalls')]
     public function testMagicMethodsCanNeverBeCalled(string $expression): void
     {
+        // L'objet est gardé dans une variable du test : PHP ne le détruit donc
+        // pas de lui-même pendant la vérification. Si le compteur bouge, c'est
+        // que le template a réussi à appeler le destructeur.
+        $note = new Note();
         $destroyedBefore = Note::$destroyed;
 
         try {
-            $this->evaluate($expression);
+            $this->evaluate($expression, ['note' => $note, 'prix' => [1, 2]]);
             self::fail('Une exception était attendue.');
         } catch (KiooException $exception) {
             self::assertStringContainsString('ne peut pas être appelée', $exception->getMessage());
         }
 
         self::assertSame($destroyedBefore, Note::$destroyed);
+        self::assertSame('Acheter du pain', $note->texte, 'L\'objet est intact.');
     }
 
     /**
