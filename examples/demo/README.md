@@ -21,7 +21,7 @@ Pour voir le détail des erreurs dans le navigateur, copiez `.env.example` sous 
 
 ## Ce que contient le dossier
 
-```
+```text
 examples/demo/
 ├── public/                  Le seul dossier visible depuis un navigateur
 │   ├── index.php            Le point d'entrée : réglages, assemblage, réponse
