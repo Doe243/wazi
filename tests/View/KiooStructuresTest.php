@@ -37,6 +37,13 @@ final class KiooStructuresTest extends TestCase
         yield 'sinon, condition vraie' => ['<p k:if="actif">oui</p><p k:else>non</p>', '<p>oui</p>'];
         yield 'sinon, condition fausse' => ['<p k:if="inactif">oui</p><p k:else class="b">non</p>', '<p class="b">non</p>'];
         yield 'sinon, séparé par des retours à la ligne' => ["<p k:if=\"inactif\">oui</p>\n\n  <p k:else>non</p>", '<p>non</p>'];
+        yield 'sinon, séparé par un commentaire' => ["<p k:if=\"inactif\">oui</p>
+<!-- sinon : le visiteur est connecté -->
+<p k:else>non</p>", '<p>non</p>'];
+        yield 'sinon, séparé par un commentaire, condition vraie' => ['<p k:if="actif">oui</p><!-- sinon --><p k:else>non</p>', '<p>oui</p>'];
+        yield 'sinon, séparé par deux commentaires' => ['<p k:if="inactif">oui</p> <!-- a --> <!-- b --> <p k:else>non</p>', '<p>non</p>'];
+        yield 'liste vide, sinon après un commentaire' => ['<li k:for="note in aucune">{note}</li><!-- liste vide --><li k:else>Aucune.</li>', '<li>Aucune.</li>'];
+        yield 'un commentaire ailleurs est gardé' => ['<!-- avant --><p k:if="actif">oui</p><p k:else>non</p><!-- après -->', '<!-- avant --><p>oui</p><!-- après -->'];
         yield 'sinon sur une autre sorte de balise' => ['<strong k:if="inactif">oui</strong><em k:else>non</em>', '<em>non</em>'];
         yield 'ce qui suit le sinon est écrit dans les deux cas' => ['<p k:if="actif">oui</p><p k:else>non</p><hr>', '<p>oui</p><hr>'];
 
@@ -112,6 +119,10 @@ final class KiooStructuresTest extends TestCase
         yield 'k:else sans k:if avant' => ['<p>a</p><p k:else>b</p>', 'k:else se place sur la balise qui suit immédiatement'];
         yield 'k:else en tout premier' => ['<p k:else>b</p>', 'k:else se place'];
         yield 'k:else séparé par du texte' => ['<p k:if="actif">a</p> ou <p k:else>b</p>', 'k:else se place'];
+        yield 'k:else séparé par un commentaire et du texte' => ['<p k:if="actif">a</p><!-- c --> ou <p k:else>b</p>', 'seuls des espaces et des commentaires'];
+        yield 'k:else séparé par une autre balise' => ['<p k:if="actif">a</p><hr><p k:else>b</p>', 'k:else se place'];
+        yield 'k:else après un commentaire, sans k:if' => ['<!-- seul --><p k:else>b</p>', 'k:else se place'];
+        yield 'k:else séparé par une déclaration' => ['<p k:if="actif">a</p><!DOCTYPE html><p k:else>b</p>', 'k:else se place'];
         yield 'deux k:else' => ['<p k:if="actif">a</p><p k:else>b</p><p k:else>c</p>', 'a déjà son k:else'];
         yield 'k:if et k:for ensemble' => ['<li k:for="note in notes" k:if="actif">x</li>', 'Gardez-en un seul'];
         yield 'k:if et k:else ensemble' => ['<p k:if="actif">a</p><p k:else k:if="inactif">b</p>', 'Gardez-en un seul'];

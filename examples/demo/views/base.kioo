@@ -22,9 +22,9 @@
     </a>
     <nav aria-label="Navigation principale">
         <a href="/notes">Mes notes</a>
+        <a k:if="utilisateur == null" class="bouton discret" href="/connexion">Se connecter</a>
         <!-- Se déconnecter change quelque chose : c'est un formulaire POST, pas un lien.
              Kioo lui ajoute de lui-même le champ caché du jeton de protection. -->
-        <a k:if="utilisateur == null" class="bouton discret" href="/connexion">Se connecter</a>
         <form k:else method="post" action="/deconnexion">
             <span class="pastille">{utilisateur | capitalize}</span>
             <button class="bouton discret">Se déconnecter</button>
