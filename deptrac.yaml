@@ -1,0 +1,41 @@
+# Règle d'or de Wazi : les dépendances vont toujours vers le bas.
+# Une couche peut utiliser celles du dessous, jamais celles du dessus.
+deptrac:
+  paths:
+    - ./src
+  layers:
+    - name: Contracts
+      collectors: [{ type: directory, value: src/Contracts/.* }]
+    - name: Http
+      collectors: [{ type: directory, value: src/Http/.* }]
+    - name: Container
+      collectors: [{ type: directory, value: src/Container/.* }]
+    - name: Config
+      collectors: [{ type: directory, value: src/Config/.* }]
+    - name: Routing
+      collectors: [{ type: directory, value: src/Routing/.* }]
+    - name: Middleware
+      collectors: [{ type: directory, value: src/Middleware/.* }]
+    - name: Errors
+      collectors: [{ type: directory, value: src/Errors/.* }]
+    - name: View
+      collectors: [{ type: directory, value: src/View/.* }]
+    - name: Console
+      collectors: [{ type: directory, value: src/Console/.* }]
+    - name: Kernel
+      collectors: [{ type: directory, value: src/Kernel/.* }]
+  ruleset:
+    # Contrats : ne dépendent de rien
+    Contracts: ~
+    # Fondations : uniquement les contrats
+    Http: [Contracts]
+    Container: [Contracts]
+    Config: [Contracts]
+    # Fonctionnalités : fondations et contrats, jamais entre elles
+    Routing: [Http, Container, Config, Contracts]
+    Middleware: [Http, Container, Config, Contracts]
+    Errors: [Http, Container, Config, Contracts]
+    View: [Http, Container, Config, Contracts]
+    Console: [Http, Container, Config, Contracts]
+    # Assemblage : seul le Kernel connaît tout le monde
+    Kernel: [Routing, Middleware, Errors, View, Console, Http, Container, Config, Contracts]
