@@ -4,7 +4,7 @@
 
 Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'IDE, chaque erreur explique sa cause et la solution.
 
-> **Statut : en construction (0.1 « Ça répond »).** Une application en un seul fichier répond à des routes avec paramètres et affiche des erreurs pédagogiques. L'API peut encore changer.
+> **Statut : en construction (0.2 « Ça s'organise »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, erreurs pédagogiques. Pas encore de vues ni de base de données. L'API peut encore changer.
 
 ## Un premier exemple
 
@@ -28,10 +28,11 @@ $app->router->get('/articles/{id:int}', function (ServerRequestInterface $reques
 $app->run();
 ```
 
-Un exemple plus complet se trouve dans [`examples/bonjour.php`](examples/bonjour.php) :
+Deux exemples à lancer, chacun en un seul fichier :
 
 ```bash
-php -S localhost:8000 examples/bonjour.php
+php -S localhost:8000 examples/bonjour.php   # des routes écrites comme des fonctions
+php -S localhost:8000 examples/carnet.php    # un contrôleur, un service injecté, des routes en attributs, un middleware
 ```
 
 ## Principes
