@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Wazi\Routing;
 
+use Psr\Http\Server\MiddlewareInterface;
+use Wazi\Http\Exception\InvalidMiddlewareException;
+use Wazi\Http\Pipeline;
 use Wazi\Routing\Exception\InvalidRouteException;
 
 /**
@@ -30,8 +33,27 @@ final readonly class Route
     /** Ce qu'un segment fixe ne peut pas contenir : accolades, et ce qui a un sens spécial dans une URI. */
     private const string FORBIDDEN_IN_LITERAL = '/[{}?#%\\\\\x00-\x20\x7F]/';
 
+    /** Un nom de classe : des mots séparés par « \ ». */
+    private const string CLASS_NAME = '/^[a-zA-Z_][a-zA-Z0-9_]*(?:\\\\[a-zA-Z_][a-zA-Z0-9_]*)*$/D';
+
+    private const string METHOD_NAME = '/^[a-zA-Z_][a-zA-Z0-9_]*$/D';
+
     /** @var list<string> */
     public array $methods;
+
+    /**
+     * Le code de la route : une fonction, ou [classe du contrôleur, nom de la méthode].
+     *
+     * @var \Closure|array{string, string}
+     */
+    public \Closure|array $handler;
+
+    /**
+     * Les middlewares propres à cette route : objets, ou noms de classes à fabriquer.
+     *
+     * @var list<MiddlewareInterface|string>
+     */
+    public array $middlewares;
 
     /**
      * Les segments du chemin. Pour un segment fixe, « parameter » vaut null et
@@ -42,13 +64,15 @@ final readonly class Route
     private array $segments;
 
     /**
-     * @param list<string> $methods les méthodes HTTP acceptées, en majuscules
-     * @param string       $path    le chemin, par exemple /articles/{id:int}
-     * @param \Closure     $handler la fonction à exécuter ; elle reçoit la requête et retourne une réponse
+     * @param list<string>            $methods     les méthodes HTTP acceptées, en majuscules
+     * @param string                  $path        le chemin, par exemple /articles/{id:int}
+     * @param \Closure|array<mixed>   $handler     une fonction, ou [ArticleController::class, 'show']
+     * @param array<array-key, mixed> $middlewares les middlewares propres à cette route, du plus extérieur au plus intérieur
      *
-     * @throws InvalidRouteException si la route est mal déclarée
+     * @throws InvalidRouteException      si la route est mal déclarée
+     * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
-    public function __construct(array $methods, public string $path, public \Closure $handler)
+    public function __construct(array $methods, public string $path, \Closure|array $handler, array $middlewares = [])
     {
         if ($methods === []) {
             throw InvalidRouteException::noMethod($path);
@@ -62,6 +86,8 @@ final readonly class Route
 
         $this->methods = array_values(array_unique($methods));
         $this->segments = self::parse($path);
+        $this->handler = self::validHandler($path, $handler);
+        $this->middlewares = Pipeline::declared($middlewares);
     }
 
     /**
@@ -106,6 +132,33 @@ final readonly class Route
         // toute route GET y répond.
         return in_array($method, $this->methods, true)
             || ($method === 'HEAD' && in_array('GET', $this->methods, true));
+    }
+
+    /**
+     * Vérifie la FORME du code de la route. L'existence de la classe et de la
+     * méthode n'est vérifiée qu'au moment d'exécuter la route : ainsi, déclarer
+     * cent routes ne charge pas cent classes à chaque requête.
+     *
+     * @param \Closure|array<mixed> $handler
+     *
+     * @return \Closure|array{string, string}
+     */
+    private static function validHandler(string $path, \Closure|array $handler): \Closure|array
+    {
+        if ($handler instanceof \Closure) {
+            return $handler;
+        }
+
+        $class = $handler[0] ?? null;
+        $method = $handler[1] ?? null;
+
+        if (count($handler) !== 2 || !is_string($class) || !is_string($method)
+            || preg_match(self::CLASS_NAME, $class) !== 1 || preg_match(self::METHOD_NAME, $method) !== 1
+        ) {
+            throw InvalidRouteException::invalidHandler($path);
+        }
+
+        return [$class, $method];
     }
 
     /**

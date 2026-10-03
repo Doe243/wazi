@@ -10,15 +10,18 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Errors\ErrorHandler;
+use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Kernel\Kernel;
-use Wazi\Middleware\Exception\InvalidMiddlewareException;
 use Wazi\Middleware\SecurityHeaders;
 use Wazi\Routing\Router;
 use Wazi\Tests\Errors\Fixtures\MemoryErrorLog;
 use Wazi\Tests\Http\Fixtures\FakeSapi;
+use Wazi\Tests\Routing\Fixtures\ArticleController;
+use Wazi\Tests\Routing\Fixtures\Greeter;
+use Wazi\Tests\Routing\Fixtures\RequireToken;
 
 require_once __DIR__ . '/../Http/Fixtures/sapi_functions.php';
 
@@ -98,6 +101,8 @@ final class KernelTest extends TestCase
     public function testProductionIsTheDefaultMode(): void
     {
         $app = new Kernel(errorHandler: null, router: new Router());
+
+        self::assertInstanceOf(Router::class, $app->router);
         $app->router->add(['GET'], '/', static fn(): string => 'pas une réponse');
 
         $html = (string) $app->handle(new ServerRequest('GET', '/inconnu'))->getBody();
@@ -219,7 +224,62 @@ final class KernelTest extends TestCase
     {
         $this->expectException(InvalidMiddlewareException::class);
 
-        new Kernel(middlewares: ['App\\Middleware\\Auth']);
+        new Kernel(middlewares: [static fn(): null => null]);
+    }
+
+    // --- Contrôleurs et conteneur ------------------------------------------
+
+    /**
+     * Le critère de sortie de la version 0.2 : un contrôleur dont les
+     * dépendances sont injectées, protégé par un middleware.
+     */
+    public function testAControllerWithInjectedDependenciesIsProtectedByAMiddleware(): void
+    {
+        $app = $this->kernel();
+        $app->router->get('/bonjour/{name}', [ArticleController::class, 'greet'], [RequireToken::class]);
+
+        $refused = $app->handle(new ServerRequest('GET', '/bonjour/Alice'));
+        $accepted = $app->handle(new ServerRequest('GET', '/bonjour/Alice', ['Authorization' => 'Bearer bon-jeton']));
+
+        self::assertSame(401, $refused->getStatusCode());
+        self::assertSame('Bonjour Alice !', (string) $accepted->getBody());
+        self::assertSame('nosniff', $accepted->getHeaderLine('X-Content-Type-Options'));
+    }
+
+    public function testTheKernelAndItsRouterShareTheSameContainer(): void
+    {
+        $app = $this->kernel();
+        $app->container->set(Greeter::class, static fn(): Greeter => new Greeter());
+        $app->router->get('/bonjour/{name}', [ArticleController::class, 'greet']);
+
+        $app->handle(new ServerRequest('GET', '/bonjour/Alice'));
+
+        self::assertNotSame(new Kernel()->container, $app->container);
+        self::assertInstanceOf(Greeter::class, $app->container->get(Greeter::class));
+    }
+
+    /**
+     * Un middleware désigné par son nom de classe est fabriqué à la première
+     * requête : on peut donc régler le conteneur après avoir créé le noyau.
+     */
+    public function testAGlobalMiddlewareNamedByItsClassIsBuiltByTheContainer(): void
+    {
+        $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), middlewares: [RequireToken::class]);
+        $app->router->get('/', static fn(): ResponseInterface => new Response(200, [], 'page'));
+
+        self::assertSame(401, $app->handle(new ServerRequest('GET', '/'))->getStatusCode());
+        self::assertSame(401, $app->handle(new ServerRequest('GET', '/inconnu'))->getStatusCode(), 'Un middleware global passe avant le routeur.');
+    }
+
+    public function testAnUnknownControllerGivesAnErrorPageWithTheExplanation(): void
+    {
+        $app = $this->kernel(development: true);
+        $app->router->add(['GET'], '/', ['App\Controller\QuiNExistePas', 'index']);
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString('QuiNExistePas', (string) $response->getBody());
     }
 
     // --- run() -------------------------------------------------------------
