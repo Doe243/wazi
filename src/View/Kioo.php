@@ -6,6 +6,7 @@ namespace Wazi\View;
 
 use Wazi\Http\CspNonce;
 use Wazi\Http\Response;
+use Wazi\Http\Session;
 use Wazi\View\Exception\KiooException;
 use Wazi\View\Expression\Evaluator;
 
@@ -66,8 +67,9 @@ final readonly class Kioo
      * @param string|null             $viewsDirectory le dossier qui contient vos fichiers .kioo
      * @param array<string, \Closure> $filters        vos propres filtres, en plus de ceux de Filters : nom => fonction
      * @param CspNonce|null           $nonce          le jeton à poser sur les balises <script> de vos templates ; le noyau le fournit lui-même
+     * @param Session|null            $session        la session, pour protéger vos formulaires ; le noyau la fournit lui-même
      */
-    public function __construct(?string $viewsDirectory = null, array $filters = [], ?CspNonce $nonce = null)
+    public function __construct(?string $viewsDirectory = null, array $filters = [], ?CspNonce $nonce = null, ?Session $session = null)
     {
         $this->loader = new TemplateLoader($viewsDirectory);
         $this->renderer = new Renderer(
@@ -79,6 +81,7 @@ final readonly class Kioo
             ]),
             $this->loader,
             $nonce?->value,
+            $session,
         );
     }
 

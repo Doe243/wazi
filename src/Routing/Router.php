@@ -7,6 +7,7 @@ namespace Wazi\Routing;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
 use Wazi\Http\Exception\InvalidMiddlewareException;
@@ -76,9 +77,24 @@ final class Router implements RequestHandlerInterface
     private array $routes = [];
 
     /**
-     * @param ContainerInterface $container fabrique les contrôleurs et les middlewares désignés par leur nom de classe
+     * Les middlewares appliqués à TOUTES les routes, juste avant leur code.
+     *
+     * @var list<MiddlewareInterface|string>
      */
-    public function __construct(private readonly ContainerInterface $container = new Container()) {}
+    private readonly array $middlewares;
+
+    /**
+     * @param ContainerInterface      $container   fabrique les contrôleurs et les middlewares désignés par leur nom de classe
+     * @param array<array-key, mixed> $middlewares des middlewares appliqués à toutes les routes, après ceux de chaque route
+     *
+     * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
+     */
+    public function __construct(
+        private readonly ContainerInterface $container = new Container(),
+        array $middlewares = [],
+    ) {
+        $this->middlewares = Pipeline::declared($middlewares);
+    }
 
     // ------------------------------------------------------------------
     // Déclarer des routes
@@ -270,8 +286,11 @@ final class Router implements RequestHandlerInterface
         // Les middlewares de la route entourent son code. Ils s'exécutent ici,
         // dans le routeur : une route gardée l'est donc toujours, qu'elle soit
         // appelée par le noyau ou par le routeur seul.
+        // L'ordre : d'abord les middlewares de la route, puis ceux de toutes les
+        // routes. Un middleware de route peut ainsi laisser une marque que ceux
+        // de toutes les routes liront (c'est ce que fait WithoutCsrf).
         return Pipeline::resolved(
-            $route->middlewares,
+            [...$route->middlewares, ...$this->middlewares],
             new RouteRunner($route, $parameters, $this->container),
             $this->container,
         )->handle($request);

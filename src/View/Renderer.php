@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wazi\View;
 
+use Wazi\Http\Session;
 use Wazi\View\Exception\KiooException;
 use Wazi\View\Expression\Evaluator;
 use Wazi\View\Template\Attribute;
@@ -51,12 +52,14 @@ final readonly class Renderer
     private const string CONTENT_BLOCK = 'content';
 
     /**
-     * @param string|null $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
+     * @param string|null  $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
+     * @param Session|null $session     la session, pour ajouter le jeton de protection aux formulaires, ou null
      */
     public function __construct(
         private Evaluator $evaluator,
         private TemplateLoader $loader,
         private ?string $scriptNonce = null,
+        private ?Session $session = null,
     ) {}
 
     /**
@@ -271,9 +274,69 @@ final readonly class Renderer
             return $html . ' />';
         }
 
-        $html .= '>' . $this->renderNodes($element->children, $variables, $template, $blocks, $depth);
+        $html .= '>';
+
+        // Sécurité (ADR-021) : un formulaire envoyé en POST vers VOTRE site
+        // reçoit le jeton qui prouve qu'il vient bien de vos pages.
+        if ($name === 'form' && $this->isOwnPostForm($element, $variables, $template)) {
+            $html .= '<input type="hidden" name="' . Session::CSRF_FIELD . '" value="' . Escaper::html($this->session?->csrfToken() ?? '') . '">';
+        }
+
+        $html .= $this->renderNodes($element->children, $variables, $template, $blocks, $depth);
 
         return $element->closed ? $html . '</' . $element->name . '>' : $html;
+    }
+
+    /**
+     * Vrai si ce formulaire doit recevoir le jeton de protection : il est
+     * envoyé en POST, vers une adresse de ce site.
+     *
+     * Sécurité : le jeton n'est JAMAIS ajouté à un formulaire qui part vers un
+     * autre site. Ce site apprendrait le jeton, et pourrait s'en servir contre
+     * votre visiteur.
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function isOwnPostForm(Element $element, array $variables, string $template): bool
+    {
+        if ($this->session === null || !$this->session->isStarted()) {
+            return false;
+        }
+
+        $method = '';
+        $action = '';
+
+        foreach ($element->attributes as $attribute) {
+            $attributeName = strtolower($attribute->name);
+
+            if ($attributeName === 'method' || $attributeName === 'action') {
+                $value = $this->attributeValue($attribute, $variables, $template);
+                $value = is_string($value) || is_int($value) ? (string) $value : '';
+
+                if ($attributeName === 'method') {
+                    $method = $value;
+                } else {
+                    $action = $value;
+                }
+            }
+        }
+
+        return strtolower(trim($method)) === 'post' && self::isSameSite($action);
+    }
+
+    /**
+     * Vrai pour une adresse de ce site : vide (la page elle-même), « /chemin »,
+     * « page », « ?a=1 ». Faux dès qu'elle nomme un protocole ou un autre hôte.
+     */
+    private static function isSameSite(string $url): bool
+    {
+        // Comme pour une adresse dangereuse : les navigateurs ignorent les
+        // espaces et retours à la ligne glissés au début.
+        $compact = preg_replace('/[\x00-\x20\x7F]+/', '', $url) ?? '';
+
+        // « //hote », « /\hote » et « \\hote » désignent un autre site ;
+        // « https://… » et « mailto:… » aussi.
+        return preg_match('#^(?:[/\\\\]{2}|[^:/?\#]*:)#', $compact) !== 1;
     }
 
     /**
