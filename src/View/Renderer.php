@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wazi\View;
 
-use Wazi\Http\Session;
+use Wazi\Http\CsrfToken;
 use Wazi\View\Exception\KiooException;
 use Wazi\View\Expression\Evaluator;
 use Wazi\View\Template\Attribute;
@@ -53,13 +53,13 @@ final readonly class Renderer
 
     /**
      * @param string|null  $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
-     * @param Session|null $session     la session, pour ajouter le jeton de protection aux formulaires, ou null
+     * @param CsrfToken|null $csrf      le jeton de protection à ajouter aux formulaires, ou null
      */
     public function __construct(
         private Evaluator $evaluator,
         private TemplateLoader $loader,
         private ?string $scriptNonce = null,
-        private ?Session $session = null,
+        private ?CsrfToken $csrf = null,
     ) {}
 
     /**
@@ -276,10 +276,10 @@ final readonly class Renderer
 
         $html .= '>';
 
-        // Sécurité (ADR-021) : un formulaire envoyé en POST vers VOTRE site
+        // Sécurité (ADR-023) : un formulaire envoyé en POST vers VOTRE site
         // reçoit le jeton qui prouve qu'il vient bien de vos pages.
         if ($name === 'form' && $this->isOwnPostForm($element, $variables, $template)) {
-            $html .= '<input type="hidden" name="' . Session::CSRF_FIELD . '" value="' . Escaper::html($this->session?->csrfToken() ?? '') . '">';
+            $html .= '<input type="hidden" name="' . CsrfToken::FIELD . '" value="' . Escaper::html($this->csrf?->value() ?? '') . '">';
         }
 
         $html .= $this->renderNodes($element->children, $variables, $template, $blocks, $depth);
@@ -299,7 +299,7 @@ final readonly class Renderer
      */
     private function isOwnPostForm(Element $element, array $variables, string $template): bool
     {
-        if ($this->session === null || !$this->session->isStarted()) {
+        if ($this->csrf === null || !$this->csrf->isStarted()) {
             return false;
         }
 

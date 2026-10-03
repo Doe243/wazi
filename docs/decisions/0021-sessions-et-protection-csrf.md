@@ -1,6 +1,6 @@
 # ADR-021 : sessions en fichiers JSON et protection CSRF par défaut
 
-**Statut :** acceptée
+**Statut :** acceptée — partie « protection CSRF » remplacée par l'ADR-023
 
 ## Contexte
 Une application a besoin de reconnaître un visiteur d'une page à l'autre (connexion, panier), et de protéger ses formulaires contre la falsification de requête (CSRF). L'ADR-006 demande des cookies `HttpOnly`, `Secure`, `SameSite=Lax`, une protection CSRF active par défaut, et une sortie explicite et locale. Il interdit aussi `unserialize()` sur des données manipulables.

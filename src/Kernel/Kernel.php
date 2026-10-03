@@ -11,12 +11,14 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
 use Wazi\Errors\ErrorHandler;
 use Wazi\Http\CspNonce;
+use Wazi\Http\CsrfToken;
 use Wazi\Http\Exception\EmitterException;
 use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Pipeline;
 use Wazi\Http\ResponseEmitter;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Http\Session;
+use Wazi\Middleware\CsrfCookie;
 use Wazi\Middleware\CsrfProtection;
 use Wazi\Middleware\FileSessionStore;
 use Wazi\Middleware\SecurityHeaders;
@@ -86,7 +88,7 @@ final readonly class Kernel implements RequestHandlerInterface
      * @param array<array-key, mixed> $middlewares     vos middlewares (objets, ou noms de classes), du plus extérieur au plus intérieur
      * @param SecurityHeaders|null    $securityHeaders les en-têtes de sécurité, placés avant vos middlewares ; null pour les retirer
      * @param string|null             $views           le dossier de vos templates Kioo : vos contrôleurs peuvent alors demander un Kioo dans leur constructeur
-     * @param string|null             $sessions        le dossier où ranger les sessions (hors du dossier public) : active les sessions et la protection des formulaires
+     * @param string|null             $sessions        le dossier où ranger les sessions (hors du dossier public) : vos contrôleurs peuvent alors demander une Session
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
@@ -110,26 +112,28 @@ final readonly class Kernel implements RequestHandlerInterface
         $securityHeaders = $securityHeaders?->withNonce($nonce);
         $this->container->set(CspNonce::class, static fn(): CspNonce => $nonce);
 
-        // Les sessions, et avec elles la protection des formulaires (ADR-021).
-        // Une seule Session pour la requête : celle que le middleware remplit
-        // est celle que reçoivent vos contrôleurs et vos templates.
-        $session = $sessions !== null ? new Session() : null;
-        $ahead = [];
-        $forEveryRoute = [];
+        // La protection des formulaires (ADR-023), toujours active : CsrfCookie
+        // transporte le jeton, CsrfProtection le vérifie sur chaque route, et
+        // Kioo l'écrit dans les formulaires.
+        $csrf = new CsrfToken();
+        $this->container->set(CsrfToken::class, static fn(): CsrfToken => $csrf);
+        $ahead = [new CsrfCookie($csrf)];
 
-        if ($session !== null && $sessions !== null) {
+        // Les sessions (ADR-021). Une seule Session pour la requête : celle que
+        // le middleware remplit est celle que reçoivent vos contrôleurs.
+        if ($sessions !== null) {
+            $session = new Session();
             $this->container->set(Session::class, static fn(): Session => $session);
             $ahead[] = new SessionMiddleware($session, new FileSessionStore($sessions));
-            $forEveryRoute[] = new CsrfProtection($session);
         }
 
         if ($views !== null) {
-            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce, $session));
+            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce, $csrf));
         }
 
         // Le routeur et le noyau partagent le même conteneur : un service
         // n'existe qu'en un exemplaire dans toute l'application.
-        $this->router = $router ?? new Router($this->container, $forEveryRoute);
+        $this->router = $router ?? new Router($this->container, [new CsrfProtection($csrf)]);
 
         // SecurityHeaders est le plus à l'extérieur : il voit passer la
         // réponse en dernier, après tous vos middlewares.

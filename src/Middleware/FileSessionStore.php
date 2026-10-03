@@ -11,7 +11,7 @@ use Wazi\Middleware\Exception\SessionStoreException;
  * Conserve les sessions dans des fichiers : un fichier par visiteur, nommé
  * d'après son identifiant de session.
  *
- *     var/sessions/3f9a…e21.json   →   {"user_id": 42, "_csrf": "…"}
+ *     var/sessions/3f9a…e21.json   →   {"user_id": 42, "panier": [3, 7]}
  *
  * Une session qui n'a pas servi depuis $lifetime secondes est considérée comme
  * expirée : elle n'est plus lue, et son fichier finit par être supprimé.
