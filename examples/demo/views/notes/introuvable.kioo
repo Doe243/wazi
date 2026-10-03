@@ -1,0 +1,8 @@
+<k:layout name="base">
+<k:block name="titre">Note introuvable</k:block>
+
+<section class="carte etroite">
+    <h1>Note introuvable</h1>
+    <p>Aucune de vos notes ne porte le numéro {id}.</p>
+    <p><a class="bouton" href="/notes">Retour à mes notes</a></p>
+</section>

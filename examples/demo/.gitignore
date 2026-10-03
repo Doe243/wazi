@@ -1,0 +1,4 @@
+# Les réglages propres à chaque installation, et leurs secrets.
+/.env
+# Les sessions et les notes : des données, pas du code.
+/var/

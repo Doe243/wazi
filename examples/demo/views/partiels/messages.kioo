@@ -1,0 +1,2 @@
+<!-- role="status" : un lecteur d'écran annonce le message sans que le visiteur le cherche. -->
+<p k:for="message in messages" class="message {message.type}" role="status">{message.texte}</p>

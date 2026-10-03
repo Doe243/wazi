@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><k:block name="titre">Carnet</k:block> — Démonstration Wazi</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="/app.css">
+    <k:block name="entete"></k:block>
+</head>
+<body>
+<header class="bandeau">
+    <a class="marque" href="/">
+        <svg width="38" height="28" viewBox="0 0 76 56" fill="none" aria-hidden="true">
+            <path d="M6 8 L24 48 L40 14" stroke="#0D2B30" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M36 14 L52 48 L70 8" stroke="#12A3A0" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+        </svg>
+        <span>carnet</span>
+    </a>
+    <nav aria-label="Navigation principale">
+        <a href="/notes">Mes notes</a>
+        <!-- Se déconnecter change quelque chose : c'est un formulaire POST, pas un lien.
+             Kioo lui ajoute de lui-même le champ caché du jeton de protection. -->
+        <a k:if="utilisateur == null" class="bouton discret" href="/connexion">Se connecter</a>
+        <form k:else method="post" action="/deconnexion">
+            <span class="pastille">{utilisateur | capitalize}</span>
+            <button class="bouton discret">Se déconnecter</button>
+        </form>
+    </nav>
+</header>
+
+<main>
+    <k:include file="partiels/messages" messages="{messages}">
+    <k:block name="content"></k:block>
+</main>
+
+<k:include file="partiels/pied" annee="{annee}">
+</body>
+</html>
