@@ -127,7 +127,8 @@ final class KiooException extends \RuntimeException
     {
         return new self(
             'Cette balise porte k:else, mais la balise juste avant elle n\'a ni k:if ni k:for (ou a déjà son k:else).'
-            . ' k:else se place sur la balise qui suit immédiatement celle du k:if ou du k:for.',
+            . ' k:else se place sur la balise qui suit immédiatement celle du k:if ou du k:for : entre les deux,'
+            . ' seuls des espaces et des commentaires sont permis.',
         );
     }
 

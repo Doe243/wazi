@@ -382,6 +382,11 @@ final class TemplateParser
         return true;
     }
 
+    private static function isComment(TemplateNode $node): bool
+    {
+        return $node instanceof Raw && str_starts_with($node->source, '<!--');
+    }
+
     private static function isWhitespace(TemplateNode $node): bool
     {
         if (!$node instanceof Text) {
@@ -673,18 +678,20 @@ final class TemplateParser
             return $siblings;
         }
 
-        // On remonte les voisins en sautant les espaces et retours à la ligne.
+        // On remonte les voisins en sautant les espaces, les retours à la
+        // ligne et les commentaires : on a le droit d'expliquer son k:else.
         for ($index = count($siblings) - 1; $index >= 0; $index--) {
             $previous = $siblings[$index];
 
-            if (self::isWhitespace($previous)) {
+            if (self::isWhitespace($previous) || self::isComment($previous)) {
                 continue;
             }
 
             if ($previous instanceof Element && ($previous->condition !== null || $previous->loop !== null) && $previous->otherwise === null) {
                 $siblings[$index] = $previous->withOtherwise($node);
 
-                // Les espaces entre les deux balises ne servent plus à rien.
+                // Ce qui séparait les deux balises (espaces, commentaires)
+                // n'est pas écrit dans la page : une seule des deux le sera.
                 return array_slice($siblings, 0, $index + 1);
             }
 
