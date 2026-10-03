@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" fill="none" role="img" aria-label="Kioo">
+  <title>Kioo</title>
+  <rect x="5" y="5" width="42" height="42" rx="11" fill="#D6EEEC" stroke="#12A3A0" stroke-width="5"/>
+  <path d="M16 27 L27 16" stroke="#0D2B30" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 35 L35 22" stroke="#0D2B30" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+</svg>
