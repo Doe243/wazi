@@ -17,9 +17,79 @@ final class KiooException extends \RuntimeException
     /**
      * @param bool $missingValue vrai quand l'erreur signale une valeur absente (variable, clé, propriété) : c'est ce que « ?? » sait rattraper
      */
-    private function __construct(string $message, public readonly bool $missingValue = false)
+    private function __construct(string $message, public readonly bool $missingValue = false, ?\Throwable $previous = null)
     {
-        parent::__construct($message);
+        parent::__construct($message, 0, $previous);
+    }
+
+    /**
+     * Situe une erreur dans son template : « Dans notes.kioo, ligne 12 : … ».
+     */
+    public static function at(self $error, string $template, int $line): self
+    {
+        return new self(sprintf('Dans le template « %s », ligne %d : %s', $template, $line, $error->getMessage()), false, $error);
+    }
+
+    // ------------------------------------------------------------------
+    // Template mal écrit
+    // ------------------------------------------------------------------
+
+    public static function unterminated(string $what, string $ending): self
+    {
+        return new self(sprintf('%s n\'est pas terminé : il manque « %s ».', $what, $ending));
+    }
+
+    public static function emptyExpression(): self
+    {
+        return new self(
+            'Les accolades { } sont vides : Kioo attend une expression à afficher, par exemple {titre}.'
+            . ' Pour écrire une vraie accolade dans la page, faites-la précéder d\'une barre inversée : \{',
+        );
+    }
+
+    public static function unexpectedClosingTag(string $name): self
+    {
+        return new self(sprintf(
+            'La balise fermante </%s> ne ferme aucune balise ouverte. Vérifiez qu\'il ne manque pas une balise'
+            . ' <%s> plus haut, ou qu\'elle n\'a pas déjà été fermée.',
+            $name,
+            $name,
+        ));
+    }
+
+    public static function interpolationNotAllowed(string $where, string $instead): self
+    {
+        return new self(sprintf(
+            'Kioo refuse d\'afficher une valeur %s : à cet endroit, aucun échappement ne protège la page,'
+            . ' et une valeur venue d\'un visiteur pourrait y exécuter du code. %s'
+            . ' Pour écrire une vraie accolade, faites-la précéder d\'une barre inversée : \{',
+            $where,
+            $instead,
+        ));
+    }
+
+    // ------------------------------------------------------------------
+    // Valeur qui ne peut pas être affichée
+    // ------------------------------------------------------------------
+
+    public static function notDisplayable(string $givenType): self
+    {
+        return new self(sprintf(
+            'Cette expression donne une valeur de type %s, que Kioo ne sait pas afficher. Il affiche un texte'
+            . ' ou un nombre. Pour un vrai/faux, écrivez {condition ? \'oui\' : \'non\'} ; pour une liste,'
+            . ' utilisez k:for ou le filtre join ; pour un objet, affichez une de ses propriétés.',
+            $givenType,
+        ));
+    }
+
+    public static function rawHtmlInAttribute(string $attribute): self
+    {
+        return new self(sprintf(
+            'Le filtre « unsafe_raw » ne peut pas servir dans l\'attribut « %s » : une valeur non échappée'
+            . ' y fermerait le guillemet et ajouterait ses propres attributs. Il ne s\'utilise que dans le'
+            . ' texte de la page, entre deux balises.',
+            $attribute,
+        ));
     }
 
     // ------------------------------------------------------------------
