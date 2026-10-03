@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Wazi\Routing;
 
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Wazi\Container\Container;
+use Wazi\Http\Exception\InvalidMiddlewareException;
+use Wazi\Http\Pipeline;
 use Wazi\Routing\Exception\InvalidRouteException;
 use Wazi\Routing\Exception\MethodNotAllowedException;
 use Wazi\Routing\Exception\RouteNotFoundException;
@@ -24,6 +28,11 @@ use Wazi\Routing\Exception\RoutingException;
  *     });
  *
  *     $response = $router->handle($request);
+ *
+ * Le code d'une route peut aussi être la méthode d'un contrôleur, et la route
+ * peut avoir ses propres middlewares (voir RouteRunner et Pipeline) :
+ *
+ *     $router->get('/admin', [AdminController::class, 'index'], [RequireLogin::class]);
  *
  * Comment il choisit (ADR-009) : il parcourt ses routes dans l'ordre où vous
  * les avez déclarées et prend la PREMIÈRE qui correspond. Déclarez donc
@@ -49,61 +58,73 @@ final class Router implements RequestHandlerInterface
     /** @var list<Route> */
     private array $routes = [];
 
+    /**
+     * @param ContainerInterface $container fabrique les contrôleurs et les middlewares désignés par leur nom de classe
+     */
+    public function __construct(private readonly ContainerInterface $container = new Container()) {}
+
     // ------------------------------------------------------------------
     // Déclarer des routes
     // ------------------------------------------------------------------
 
     /**
-     * @param \Closure(ServerRequestInterface): ResponseInterface $handler
+     * @param \Closure|array{class-string, string} $handler
+     * @param array<array-key, mixed>              $middlewares
      */
-    public function get(string $path, \Closure $handler): void
+    public function get(string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $this->add(['GET'], $path, $handler);
+        $this->add(['GET'], $path, $handler, $middlewares);
     }
 
     /**
-     * @param \Closure(ServerRequestInterface): ResponseInterface $handler
+     * @param \Closure|array{class-string, string} $handler
+     * @param array<array-key, mixed>              $middlewares
      */
-    public function post(string $path, \Closure $handler): void
+    public function post(string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $this->add(['POST'], $path, $handler);
+        $this->add(['POST'], $path, $handler, $middlewares);
     }
 
     /**
-     * @param \Closure(ServerRequestInterface): ResponseInterface $handler
+     * @param \Closure|array{class-string, string} $handler
+     * @param array<array-key, mixed>              $middlewares
      */
-    public function put(string $path, \Closure $handler): void
+    public function put(string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $this->add(['PUT'], $path, $handler);
+        $this->add(['PUT'], $path, $handler, $middlewares);
     }
 
     /**
-     * @param \Closure(ServerRequestInterface): ResponseInterface $handler
+     * @param \Closure|array{class-string, string} $handler
+     * @param array<array-key, mixed>              $middlewares
      */
-    public function patch(string $path, \Closure $handler): void
+    public function patch(string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $this->add(['PATCH'], $path, $handler);
+        $this->add(['PATCH'], $path, $handler, $middlewares);
     }
 
     /**
-     * @param \Closure(ServerRequestInterface): ResponseInterface $handler
+     * @param \Closure|array{class-string, string} $handler
+     * @param array<array-key, mixed>              $middlewares
      */
-    public function delete(string $path, \Closure $handler): void
+    public function delete(string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $this->add(['DELETE'], $path, $handler);
+        $this->add(['DELETE'], $path, $handler, $middlewares);
     }
 
     /**
      * Déclare une route pour une ou plusieurs méthodes : $router->add(['GET', 'POST'], '/contact', ...).
      *
-     * @param list<string> $methods
-     * @param \Closure     $handler elle reçoit la requête (ServerRequestInterface) et retourne une réponse (ResponseInterface)
+     * @param list<string>            $methods
+     * @param \Closure|array<mixed>   $handler     une fonction, ou [ArticleController::class, 'show'] ; elle retourne une réponse
+     * @param array<array-key, mixed> $middlewares les middlewares propres à cette route : objets, ou noms de classes
      *
-     * @throws InvalidRouteException si la route est mal déclarée, ou déjà déclarée
+     * @throws InvalidRouteException      si la route est mal déclarée, ou déjà déclarée
+     * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
-    public function add(array $methods, string $path, \Closure $handler): void
+    public function add(array $methods, string $path, \Closure|array $handler, array $middlewares = []): void
     {
-        $route = new Route($methods, $path, $handler);
+        $route = new Route($methods, $path, $handler, $middlewares);
 
         foreach ($this->routes as $existing) {
             foreach ($route->methods as $method) {
@@ -125,7 +146,7 @@ final class Router implements RequestHandlerInterface
      *
      * @throws RouteNotFoundException    si aucune route ne correspond à l'adresse (404)
      * @throws MethodNotAllowedException si l'adresse existe, mais pas pour cette méthode (405)
-     * @throws RoutingException          si la fonction de la route ne retourne pas une réponse
+     * @throws RoutingException          si le code de la route est introuvable ou ne retourne pas une réponse
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -145,7 +166,7 @@ final class Router implements RequestHandlerInterface
             }
 
             if ($route->accepts($method)) {
-                return self::run($route, $request, $parameters);
+                return $this->run($route, $request, $parameters);
             }
 
             $allowedMethods = [...$allowedMethods, ...$route->methods];
@@ -169,7 +190,7 @@ final class Router implements RequestHandlerInterface
     /**
      * @param array<string, string|int> $parameters
      */
-    private static function run(Route $route, ServerRequestInterface $request, array $parameters): ResponseInterface
+    private function run(Route $route, ServerRequestInterface $request, array $parameters): ResponseInterface
     {
         $attributes = $request->getAttributes();
 
@@ -181,11 +202,14 @@ final class Router implements RequestHandlerInterface
             $request = $request->withAttribute($name, $value);
         }
 
-        $response = ($route->handler)($request);
-
-        return $response instanceof ResponseInterface
-            ? $response
-            : throw RoutingException::handlerMustReturnResponse($route->path, get_debug_type($response));
+        // Les middlewares de la route entourent son code. Ils s'exécutent ici,
+        // dans le routeur : une route gardée l'est donc toujours, qu'elle soit
+        // appelée par le noyau ou par le routeur seul.
+        return Pipeline::resolved(
+            $route->middlewares,
+            new RouteRunner($route, $parameters, $this->container),
+            $this->container,
+        )->handle($request);
     }
 
     /**

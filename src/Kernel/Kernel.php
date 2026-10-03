@@ -6,13 +6,15 @@ namespace Wazi\Kernel;
 
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Wazi\Container\Container;
 use Wazi\Errors\ErrorHandler;
 use Wazi\Http\Exception\EmitterException;
+use Wazi\Http\Exception\InvalidMiddlewareException;
+use Wazi\Http\Pipeline;
 use Wazi\Http\ResponseEmitter;
 use Wazi\Http\ServerRequestCreator;
-use Wazi\Middleware\Exception\InvalidMiddlewareException;
-use Wazi\Middleware\Pipeline;
 use Wazi\Middleware\SecurityHeaders;
 use Wazi\Routing\Router;
 
@@ -62,32 +64,44 @@ final readonly class Kernel implements RequestHandlerInterface
 
     private ErrorHandler $errorHandler;
 
-    /** Les middlewares et le routeur, assemblés : c'est ce que traverse chaque requête. */
-    private Pipeline $pipeline;
+    /** Là où vous déclarez vos routes : $app->router->get(...). */
+    public Router $router;
+
+    /**
+     * Les middlewares que traverse chaque requête avant le routeur.
+     *
+     * @var list<MiddlewareInterface|string>
+     */
+    private array $middlewares;
 
     /**
      * @param bool                    $development     true pour voir le message des erreurs dans le navigateur ; à ne jamais activer en production
-     * @param array<array-key, mixed> $middlewares     vos middlewares (objets MiddlewareInterface), du plus extérieur au plus intérieur
+     * @param Container               $container       là où vous expliquez comment fabriquer vos services : $app->container->set(...)
+     * @param array<array-key, mixed> $middlewares     vos middlewares (objets, ou noms de classes), du plus extérieur au plus intérieur
      * @param SecurityHeaders|null    $securityHeaders les en-têtes de sécurité, placés avant vos middlewares ; null pour les retirer
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
     public function __construct(
         bool $development = false,
-        public Router $router = new Router(),
+        ?Router $router = null,
         private ServerRequestCreator $requestCreator = new ServerRequestCreator(),
         ?ErrorHandler $errorHandler = null,
         private ResponseEmitter $emitter = new ResponseEmitter(),
         array $middlewares = [],
         ?SecurityHeaders $securityHeaders = new SecurityHeaders(),
+        public Container $container = new Container(),
     ) {
         $this->errorHandler = $errorHandler ?? new ErrorHandler($development);
 
+        // Le routeur et le noyau partagent le même conteneur : un service
+        // n'existe qu'en un exemplaire dans toute l'application.
+        $this->router = $router ?? new Router($this->container);
+
         // SecurityHeaders est le plus à l'extérieur : il voit passer la
         // réponse en dernier, après tous vos middlewares.
-        $this->pipeline = new Pipeline(
+        $this->middlewares = Pipeline::declared(
             $securityHeaders !== null ? [$securityHeaders, ...array_values($middlewares)] : $middlewares,
-            $this->router,
         );
     }
 
@@ -121,7 +135,10 @@ final readonly class Kernel implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            return $this->pipeline->handle($request);
+            // Le pipeline est assemblé ici, et non dans le constructeur : les
+            // middlewares désignés par un nom de classe sont fabriqués par le
+            // conteneur, que vous avez pu régler après avoir créé le noyau.
+            return Pipeline::resolved($this->middlewares, $this->router, $this->container)->handle($request);
         } catch (\Throwable $error) {
             return $this->errorHandler->handle($error);
         }

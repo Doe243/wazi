@@ -93,4 +93,13 @@ final class InvalidRouteException extends \InvalidArgumentException
             $path,
         ));
     }
+
+    public static function invalidHandler(string $path): self
+    {
+        return new self(sprintf(
+            'Le code de la route « %s » est mal déclaré. Donnez soit une fonction, soit un tableau de deux textes :'
+            . ' la classe du contrôleur et le nom de sa méthode. Exemple : [ArticleController::class, \'show\'].',
+            $path,
+        ));
+    }
 }

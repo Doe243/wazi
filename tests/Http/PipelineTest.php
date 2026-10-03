@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Wazi\Tests\Middleware;
+namespace Wazi\Tests\Http;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -10,10 +10,11 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Wazi\Container\Container;
+use Wazi\Http\Exception\InvalidMiddlewareException;
+use Wazi\Http\Pipeline;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
-use Wazi\Middleware\Exception\InvalidMiddlewareException;
-use Wazi\Middleware\Pipeline;
 
 final class PipelineTest extends TestCase
 {
@@ -115,7 +116,7 @@ final class PipelineTest extends TestCase
      */
     public static function valuesThatAreNotMiddlewares(): iterable
     {
-        yield 'nom de classe' => ['App\Middleware\Auth', 'string'];
+        yield 'nom de classe (à passer par resolved())' => ['App\Middleware\Auth', 'string'];
         yield 'fonction' => [static fn(): null => null, 'Closure'];
         yield 'null' => [null, 'null'];
         yield 'gestionnaire' => [self::finalHandler(), 'RequestHandlerInterface@anonymous'];
@@ -132,6 +133,78 @@ final class PipelineTest extends TestCase
             self::assertStringContainsString($type, $exception->getMessage());
             self::assertStringContainsString('MiddlewareInterface', $exception->getMessage());
         }
+    }
+
+    // --- Liste déclarée : objets ou noms de classes --------------------------
+
+    public function testADeclaredListAcceptsObjectsAndClassNames(): void
+    {
+        $object = self::wrap('A');
+
+        self::assertSame([$object, 'App\Middleware\Auth'], Pipeline::declared(['premier' => $object, 'second' => 'App\Middleware\Auth']));
+    }
+
+    public function testDeclaringAListBuildsNothing(): void
+    {
+        $asked = [];
+        $spy = static function (string $class) use (&$asked): void {
+            $asked[] = $class;
+        };
+        spl_autoload_register($spy, true, true);
+
+        try {
+            Pipeline::declared(['App\Middleware\QuiNExistePas']);
+        } finally {
+            spl_autoload_unregister($spy);
+        }
+
+        self::assertSame([], $asked, 'La classe n\'est même pas chargée à la déclaration.');
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidDeclarations(): iterable
+    {
+        yield 'fonction' => [static fn(): null => null];
+        yield 'nombre' => [42];
+        yield 'chemin' => ['../../etc/passwd'];
+        yield 'adresse à protocole' => ['phar://piege.phar/Classe'];
+        yield 'texte avec retour à la ligne' => ["Classe\nFAUSSE LIGNE"];
+        yield 'texte vide' => [''];
+    }
+
+    #[DataProvider('invalidDeclarations')]
+    public function testAnInvalidDeclarationIsRejectedWithoutRevealingTheValue(mixed $value): void
+    {
+        try {
+            Pipeline::declared([$value]);
+            self::fail('Une exception était attendue.');
+        } catch (InvalidMiddlewareException $exception) {
+            self::assertStringContainsString('n° 0', $exception->getMessage());
+            self::assertStringNotContainsString('passwd', $exception->getMessage());
+            self::assertStringNotContainsString("\n", $exception->getMessage());
+        }
+    }
+
+    public function testClassNamesAreBuiltByTheContainerWhenThePipelineIsResolved(): void
+    {
+        $container = new Container();
+        $container->set('App\Middleware\B', static fn(): MiddlewareInterface => self::wrap('B'));
+
+        $pipeline = Pipeline::resolved([self::wrap('A'), 'App\Middleware\B'], self::finalHandler(), $container);
+
+        self::assertSame('A(B([fin]))', (string) $pipeline->handle(new ServerRequest('GET', '/'))->getBody());
+    }
+
+    public function testAClassThatIsNotAMiddlewareIsRejectedWhenResolved(): void
+    {
+        $container = new Container();
+        $container->set('App\Service\PasUnMiddleware', static fn(): \stdClass => new \stdClass());
+
+        $this->expectException(InvalidMiddlewareException::class);
+
+        Pipeline::resolved(['App\Service\PasUnMiddleware'], self::finalHandler(), $container);
     }
 
     // --- Outils ------------------------------------------------------------
