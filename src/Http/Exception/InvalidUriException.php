@@ -42,4 +42,13 @@ final class InvalidUriException extends \InvalidArgumentException
             $port,
         ));
     }
+
+    public static function notAnUri(string $givenType): self
+    {
+        return new self(sprintf(
+            'Une URI se donne sous forme de texte ou d\'objet UriInterface ; ici, c\'est « %s ».'
+            . ' Exemple : \'https://exemple.com/articles\'.',
+            $givenType,
+        ));
+    }
 }

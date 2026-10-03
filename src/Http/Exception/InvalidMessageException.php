@@ -134,4 +134,13 @@ final class InvalidMessageException extends \InvalidArgumentException
             $givenType,
         ));
     }
+
+    public static function negativeBodyLimit(int $maxBodySize): self
+    {
+        return new self(sprintf(
+            'La taille maximale d\'un corps de requête ne peut pas être négative (%d reçu).'
+            . ' Donnez-la en octets, par exemple 8 * 1024 * 1024 pour 8 Mo.',
+            $maxBodySize,
+        ));
+    }
 }
