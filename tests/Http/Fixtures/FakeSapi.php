@@ -18,12 +18,16 @@ final class FakeSapi
     /** @var list<array{string, bool, int}> Chaque appel à header() : texte, remplacement, code de statut. */
     public static array $headers = [];
 
+    /** @var list<string|null> Chaque en-tête retiré par header_remove(). */
+    public static array $removed = [];
+
     /** @var array{string, int}|null Le fichier et la ligne où la page aurait déjà commencé, ou null. */
     public static ?array $sentAt = null;
 
     public static function reset(): void
     {
         self::$headers = [];
+        self::$removed = [];
         self::$sentAt = null;
     }
 

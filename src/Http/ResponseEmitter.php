@@ -50,12 +50,35 @@ final class ResponseEmitter
         // réponse dont la moitié des en-têtes seulement serait partie.
         $this->assertHeadersAreSafe($response);
 
+        // PHP annonce par défaut sa version exacte dans chaque réponse : un
+        // renseignement utile seulement à qui cherche une faille connue.
+        header_remove('X-Powered-By');
+
         $this->emitHeaders($response);
         $this->emitStatusLine($response);
 
         if ($withBody && self::statusAllowsBody($response->getStatusCode())) {
             $this->emitBody($response);
         }
+    }
+
+    /**
+     * Jette ce qui a été affiché par erreur et attend encore dans le tampon de
+     * sortie, pour qu'une page d'erreur puisse être envoyée à la place.
+     *
+     * @return bool false si la page a déjà commencé à partir : il est alors trop tard pour envoyer quoi que ce soit
+     */
+    public function discardPendingOutput(): bool
+    {
+        if (headers_sent()) {
+            return false;
+        }
+
+        if (ob_get_level() > 0) {
+            ob_clean();
+        }
+
+        return true;
     }
 
     // ------------------------------------------------------------------

@@ -4,7 +4,35 @@
 
 Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'IDE, chaque erreur explique sa cause et la solution.
 
-> **Statut : en construction (avant 0.1).** Rien n'est encore utilisable.
+> **Statut : en construction (0.1 « Ça répond »).** Une application en un seul fichier répond à des routes avec paramètres et affiche des erreurs pédagogiques. L'API peut encore changer.
+
+## Un premier exemple
+
+```php
+<?php
+
+use Psr\Http\Message\ServerRequestInterface;
+use Wazi\Http\Response;
+use Wazi\Kernel\Kernel;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$app = new Kernel();
+
+$app->router->get('/articles/{id:int}', function (ServerRequestInterface $request) {
+    $id = $request->getAttribute('id');   // un int, garanti par la contrainte
+
+    return new Response(200, ['Content-Type' => 'text/plain; charset=utf-8'], "Article n° $id");
+});
+
+$app->run();
+```
+
+Un exemple plus complet se trouve dans [`examples/bonjour.php`](examples/bonjour.php) :
+
+```bash
+php -S localhost:8000 examples/bonjour.php
+```
 
 ## Principes
 
