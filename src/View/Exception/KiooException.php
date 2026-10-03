@@ -69,6 +69,198 @@ final class KiooException extends \RuntimeException
     }
 
     // ------------------------------------------------------------------
+    // Structures : k:if, k:else, k:for
+    // ------------------------------------------------------------------
+
+    /**
+     * @param list<string> $available
+     */
+    public static function unknownDirective(string $name, array $available): self
+    {
+        return new self(sprintf(
+            '« %s » n\'existe pas dans Kioo.%s Disponibles : %s.',
+            $name,
+            self::suggestion($name, $available),
+            implode(', ', $available),
+        ));
+    }
+
+    public static function conflictingDirectives(string $element): self
+    {
+        return new self(sprintf(
+            'La balise <%s> porte plusieurs attributs parmi k:if, k:for et k:else : Kioo ne saurait pas lequel'
+            . ' appliquer d\'abord. Gardez-en un seul, et mettez l\'autre sur une balise qui l\'entoure.',
+            $element,
+        ));
+    }
+
+    public static function directiveNeedsClosingTag(string $element): self
+    {
+        return new self(sprintf(
+            'La balise <%s> porte une structure de Kioo, mais n\'est jamais fermée : Kioo ne sait pas où'
+            . ' la structure s\'arrête. Ajoutez la balise fermante </%s>.',
+            $element,
+            $element,
+        ));
+    }
+
+    public static function bracesInDirective(string $directive): self
+    {
+        return new self(sprintf(
+            'La valeur de %s contient une accolade. Dans %s, on écrit l\'expression directement,'
+            . ' sans accolades : %s.',
+            $directive,
+            $directive,
+            $directive === 'k:for' ? 'k:for="note in notes"' : 'k:if="total > 0"',
+        ));
+    }
+
+    public static function invalidFor(): self
+    {
+        return new self(
+            'La valeur de k:for est mal écrite. Elle se lit « un élément dans une liste » :'
+            . ' k:for="note in notes". Pour avoir aussi le numéro ou la clé : k:for="numero, note in notes".',
+        );
+    }
+
+    public static function elseWithoutIf(): self
+    {
+        return new self(
+            'Cette balise porte k:else, mais la balise juste avant elle n\'a ni k:if ni k:for (ou a déjà son k:else).'
+            . ' k:else se place sur la balise qui suit immédiatement celle du k:if ou du k:for.',
+        );
+    }
+
+    public static function notIterable(string $givenType): self
+    {
+        return new self(sprintf(
+            'k:for ne peut parcourir qu\'une liste, et a reçu une valeur de type %s. Vérifiez la variable'
+            . ' donnée au template ; pour prévoir son absence : k:for="note in notes ?? vide".',
+            $givenType,
+        ));
+    }
+
+    // ------------------------------------------------------------------
+    // Mise en page et inclusions
+    // ------------------------------------------------------------------
+
+    public static function missingAttribute(string $element, string $attribute): self
+    {
+        return new self(sprintf(
+            'La balise <%s> a besoin de l\'attribut « %s ». Exemple : <%s %s="%s">.',
+            $element,
+            $attribute,
+            $element,
+            $attribute,
+            $attribute === 'file' ? 'partiels/pied' : 'titre',
+        ));
+    }
+
+    /**
+     * Sécurité (ADR-019) : voir TemplateParser::assertKiooElement().
+     */
+    public static function dynamicTemplateName(string $element, string $attribute): self
+    {
+        return new self(sprintf(
+            'Dans <%s>, l\'attribut « %s » doit être écrit en toutes lettres, sans accolades. Si une valeur'
+            . ' pouvait choisir le template à lire, un visiteur pourrait faire afficher un fichier imprévu.'
+            . ' Pour choisir entre deux templates, utilisez k:if sur deux balises <%s>.',
+            $element,
+            $attribute,
+            $element,
+        ));
+    }
+
+    public static function invalidIncludeVariable(string $name): self
+    {
+        return new self(sprintf(
+            'Dans <k:include>, « %s » ne peut pas servir de nom de variable. Chaque attribut (sauf file) devient'
+            . ' une variable du template inclus : son nom ne contient que des lettres, des chiffres et « _ ».',
+            $name,
+        ));
+    }
+
+    public static function layoutMustComeFirst(): self
+    {
+        return new self(
+            'La balise <k:layout> doit être la toute première du template, avant tout texte et toute autre balise :'
+            . ' elle dit dans quelle mise en page le reste du fichier vient se placer.',
+        );
+    }
+
+    public static function nestedBlock(): self
+    {
+        return new self(
+            'Dans un template qui utilise <k:layout>, une balise <k:block> remplit un emplacement de la mise en'
+            . ' page : elle se place au premier niveau du fichier, pas à l\'intérieur d\'une autre balise.',
+        );
+    }
+
+    public static function reservedBlock(): self
+    {
+        return new self(
+            'Le bloc « content » ne se déclare pas dans une page : il désigne tout ce qui, dans la page, n\'est pas'
+            . ' dans un <k:block>. Retirez la balise <k:block name="content"> et gardez son contenu.',
+        );
+    }
+
+    public static function nestedLayout(string $layout): self
+    {
+        return new self(sprintf(
+            'La mise en page « %s » utilise elle-même <k:layout>. Kioo ne gère qu\'un niveau de mise en page pour'
+            . ' l\'instant : retirez <k:layout> de ce fichier.',
+            $layout,
+        ));
+    }
+
+    public static function includeTooDeep(int $limit): self
+    {
+        return new self(sprintf(
+            'Plus de %d templates s\'incluent les uns dans les autres : il y a sans doute une boucle (un template'
+            . ' qui s\'inclut lui-même, directement ou par un autre). Vérifiez vos balises <k:include>.',
+            $limit,
+        ));
+    }
+
+    /**
+     * Sécurité (ADR-006) : le nom refusé n'est pas recopié dans le message.
+     */
+    public static function invalidTemplateName(): self
+    {
+        return new self(
+            'Ce nom de template est invalide. Un nom se compose de lettres, de chiffres, de « - » et de « _ »,'
+            . ' avec des « / » pour les sous-dossiers, sans extension ni « .. » : « accueil », « notes/liste ».'
+            . ' Le fichier correspondant est cherché dans le dossier des vues, avec l\'extension .kioo.',
+        );
+    }
+
+    public static function templateNotFound(string $name): self
+    {
+        return new self(sprintf(
+            'Le template « %s » est introuvable : le fichier %s.kioo n\'existe pas dans le dossier des vues.'
+            . ' Vérifiez son nom et son dossier.',
+            $name,
+            $name,
+        ));
+    }
+
+    public static function noViewsDirectory(): self
+    {
+        return new self(
+            'Ce moteur Kioo n\'a pas de dossier de vues : il ne peut pas lire de fichier. Indiquez-le à la création :'
+            . ' new Kioo(__DIR__ . \'/../views\').',
+        );
+    }
+
+    public static function viewsDirectoryNotFound(): self
+    {
+        return new self(
+            'Le dossier de vues donné à Kioo n\'existe pas. Créez-le, ou corrigez son chemin :'
+            . ' new Kioo(__DIR__ . \'/../views\').',
+        );
+    }
+
+    // ------------------------------------------------------------------
     // Valeur qui ne peut pas être affichée
     // ------------------------------------------------------------------
 
@@ -125,6 +317,19 @@ final class KiooException extends \RuntimeException
             $position + 1,
             $expected,
             $found,
+        ));
+    }
+
+    public static function operatorAfterFilter(string $expression, string $filter, int $position): self
+    {
+        return new self(sprintf(
+            'Dans l\'expression « %s », un opérateur suit le filtre « %s » (position %d). Un filtre s\'applique à'
+            . ' tout ce qui est écrit à sa gauche, et termine l\'expression. Pour continuer le calcul après lui,'
+            . ' entourez-le de parenthèses : (valeur | %s) > 1.',
+            $expression,
+            $filter,
+            $position + 1,
+            $filter,
         ));
     }
 

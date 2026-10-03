@@ -66,7 +66,11 @@ final class Parser
         $node = $this->parseFilter();
 
         if ($this->current()['type'] !== Lexer::END) {
-            throw $this->unexpected('la fin de l\'expression ou un opérateur');
+            // « notes | length > 1 » : le filtre porte sur tout ce qui le précède,
+            // et rien ne peut le suivre. On l'explique plutôt que de laisser deviner.
+            throw $node instanceof Filter && $this->current()['type'] === Lexer::OPERATOR
+                ? KiooException::operatorAfterFilter($expression, $node->name, $this->current()['position'])
+                : $this->unexpected('la fin de l\'expression ou un opérateur');
         }
 
         return $node;
