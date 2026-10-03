@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Wazi">
+  <title>Wazi</title>
+  <rect width="64" height="64" rx="14" fill="#0D2B30"/>
+  <path d="M12 20 L23 45 L33 24" stroke="#F3F8F8" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 24 L41 45 L52 20" stroke="#5FD6D2" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>

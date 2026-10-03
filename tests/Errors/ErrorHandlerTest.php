@@ -181,7 +181,8 @@ final class ErrorHandlerTest extends TestCase
 
         self::assertStringNotContainsString('mot-de-passe-tres-secret', $html);
         self::assertStringNotContainsString('failWithSecret', $html, 'Aucune trace dans le navigateur.');
-        self::assertStringNotContainsString('#0', $html);
+        // Une ligne de trace ressemble à « #0 fichier.php:12 » (à ne pas confondre avec une couleur « #0D2B30 »).
+        self::assertDoesNotMatchRegularExpression('/#\d+ \S/', $html);
     }
 
     #[DataProvider('modes')]

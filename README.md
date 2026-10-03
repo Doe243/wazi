@@ -1,3 +1,5 @@
+<p><img src="docs/brand/wazi-mark.svg" alt="" width="76" height="56"></p>
+
 # Wazi
 
 > *Wazi* : « clair, ouvert, évident » en swahili.
@@ -58,6 +60,12 @@ Les composants sont rangés en quatre couches. Une couche peut utiliser celles d
 | Contrats | `Contracts` |
 
 Les décisions d'architecture sont consignées dans [`docs/decisions/`](docs/decisions/).
+
+## Kioo
+
+<img src="docs/brand/kioo-mark.svg" alt="" width="36" height="36" align="left">
+
+Kioo (« vitre » en swahili) est le langage de templates de Wazi : une page HTML ordinaire, avec quelques attributs en plus. Il est en cours d'écriture.
 
 ## Sécurité
 
