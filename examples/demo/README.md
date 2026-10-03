@@ -1,0 +1,92 @@
+# La démonstration : un carnet de notes
+
+Une petite application complète, qui utilise chaque pièce de Wazi : routes, contrôleurs, conteneur, middlewares, réglages, templates Kioo, sessions, protection des formulaires, pages d'erreur.
+
+Elle est rangée comme le sera un vrai projet. Chaque fichier explique ce qu'il fait, et pourquoi.
+
+## La lancer
+
+Depuis le dossier du framework :
+
+```bash
+composer install
+php -S localhost:8000 -t examples/demo/public
+```
+
+Puis ouvrez http://localhost:8000. Deux comptes existent : `alice` et `bob`, mot de passe `wazi`.
+
+`-t examples/demo/public` dit au serveur que seul le dossier `public/` est visible depuis un navigateur. C'est important : sans cela, Wazi refuse de démarrer les sessions, parce que leurs fichiers seraient téléchargeables.
+
+Pour voir le détail des erreurs dans le navigateur, copiez `.env.example` sous le nom `.env` (il contient `APP_DEBUG=true`). Sans fichier `.env`, la démonstration fonctionne en mode production.
+
+## Ce que contient le dossier
+
+```
+examples/demo/
+├── public/                  Le seul dossier visible depuis un navigateur
+│   ├── index.php            Le point d'entrée : réglages, assemblage, réponse
+│   ├── app.css              Les styles
+│   └── app.js               Le script de la page « Mes notes »
+├── src/                     Le code de l'application
+│   ├── Carnet.php           Le service qui range les notes (il ne sait rien du web)
+│   ├── Comptes.php          Les comptes et la vérification des mots de passe
+│   ├── Pages.php            Fabrique les pages : ce que toutes les vues ont en commun
+│   ├── ConnexionRequise.php Le middleware qui garde les pages réservées
+│   ├── PageController.php       L'accueil, et une panne volontaire
+│   ├── ConnexionController.php  Se connecter, se déconnecter
+│   ├── NoteController.php       Lire, ajouter, modifier, supprimer
+│   └── WebhookController.php    Une route appelée par un autre programme
+├── views/                   Les templates Kioo
+│   ├── base.kioo            La mise en page commune
+│   ├── partiels/            Les morceaux inclus par d'autres vues
+│   └── ...
+├── var/                     Créé au premier lancement : sessions et notes
+└── .env.example             Les réglages, à copier sous le nom .env
+```
+
+## Le chemin d'une requête
+
+Quand vous envoyez le formulaire « Nouvelle note » :
+
+1. `public/index.php` reçoit la requête et la confie au noyau (`Kernel`).
+2. Les en-têtes de sécurité, le cookie du jeton et la session sont préparés (trois middlewares de Wazi).
+3. Le routeur trouve la route `POST /notes`, écrite au-dessus de `NoteController::ajouter()`.
+4. Wazi vérifie que le formulaire porte le bon jeton. Sinon : 403, et rien d'autre ne s'exécute.
+5. `ConnexionRequise` vérifie qu'un visiteur est connecté. Sinon : redirection vers `/connexion`.
+6. Le conteneur fabrique `NoteController`, en lui fournissant le `Carnet`, les `Pages`, la `Session`.
+7. `ajouter()` vérifie le texte, l'enregistre, note le message « Note ajoutée. », et redirige.
+8. La page suivante affiche le message, une seule fois.
+
+## À essayer
+
+| Essai | Ce qui se passe | Où regarder |
+| --- | --- | --- |
+| Se connecter en cochant « Se souvenir de moi » | Le cookie de session reçoit une durée de 30 jours | `src/ConnexionController.php` |
+| Écrire `<script>alert(1)</script>` dans une note | Le texte s'affiche tel quel, rien ne s'exécute | `views/notes/liste.kioo` |
+| Connecté en tant qu'Alice, ouvrir `/notes/4` (une note de Bob) | « Note introuvable » | `src/Carnet.php` |
+| Cliquer sur « Importante » | La note change sans recharger la page | `public/app.js` |
+| Ouvrir `/nulle-part` | 404 | — |
+| Ouvrir `/panne` | Le message de l'erreur avec `APP_DEBUG=true`, une page neutre sans | `src/PageController.php` |
+
+Et depuis un terminal, pendant que le serveur tourne :
+
+```bash
+# Un formulaire envoyé sans le jeton de protection : 403.
+curl -i -X POST http://localhost:8000/connexion -d "nom=alice&mot_de_passe=wazi"
+
+# Le webhook sans signature : 403.
+curl -i -X POST http://localhost:8000/webhook -d "bonjour"
+
+# Le webhook avec la bonne signature : 200. (DEMO_WEBHOOK_SECRET=secret-de-demo dans .env)
+curl -i -X POST http://localhost:8000/webhook -d "bonjour" \
+     -H "X-Signature: $(php -r "echo hash_hmac('sha256', 'bonjour', 'secret-de-demo');")"
+```
+
+## Ce que la démonstration ne fait pas
+
+Elle montre Wazi, pas un site prêt à mettre en ligne.
+
+- **Les comptes sont écrits dans le code**, avec le même mot de passe. Un vrai site les range dans une base de données.
+- **Le nombre d'essais de connexion n'est pas limité.** Un vrai site doit ralentir ou bloquer quelqu'un qui essaie des milliers de mots de passe.
+- **Les notes sont dans un fichier JSON.** Cela suffit pour quelques notes ; le composant de base de données de Wazi arrive dans la version 0.4.
+- **Les classes sont chargées une à une** dans `public/index.php`. Dans un vrai projet, Composer s'en charge.

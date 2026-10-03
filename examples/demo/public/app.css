@@ -1,0 +1,229 @@
+/* L'identité « Verre et lumière » de Wazi : voir docs/brand/README.md. */
+
+:root {
+    --nuit: #0D2B30;
+    --verre: #0B6E70;
+    --lagon: #12A3A0;
+    --buee: #D6EEEC;
+    --fond: #F3F8F8;
+    --bordure: #C5DAD9;
+    --secondaire: #3F5B5F;
+    --erreur: #8E1B21;
+    --erreur-fond: #FBE9EA;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--nuit);
+    font-family: 'Sora', system-ui, sans-serif;
+    line-height: 1.6;
+}
+
+.bandeau, main, .pied {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 1.25rem;
+}
+
+/* --- Bandeau ------------------------------------------------------------ */
+
+.bandeau {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem 1.5rem;
+}
+
+.marque {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    color: var(--nuit);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -.03em;
+}
+
+nav, nav form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+}
+
+/* --- Texte -------------------------------------------------------------- */
+
+h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -.03em; margin: 0 0 1rem; text-wrap: balance; }
+h2 { font-size: 1.25rem; letter-spacing: -.02em; margin: 2.5rem 0 1rem; }
+h3 { font-size: 1rem; margin: 0 0 .4rem; }
+p { margin: 0 0 1rem; }
+
+a { color: var(--verre); text-underline-offset: .2em; }
+a:hover { color: var(--nuit); }
+
+code {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: .88em;
+    background: var(--buee);
+    border-radius: 6px;
+    padding: .1em .4em;
+    overflow-wrap: anywhere;
+}
+
+.aide, .date, .compte, .ou { color: var(--secondaire); font-size: .88rem; }
+.date, .ou { margin: 0; }
+.ou { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .8rem; overflow-wrap: anywhere; }
+
+:focus-visible { outline: 3px solid var(--lagon); outline-offset: 2px; }
+
+/* --- Cartes ------------------------------------------------------------- */
+
+.carte {
+    background: #fff;
+    border: 1px solid var(--bordure);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.carte > :last-child { margin-bottom: 0; }
+.etroite { max-width: 28rem; margin-inline: auto; }
+
+.hero { padding: 2rem 0 1rem; max-width: 36rem; }
+.hero h1 { font-size: clamp(2rem, 6vw, 2.75rem); }
+.hero p { color: var(--secondaire); font-size: 1.05rem; }
+
+.grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+.grille .carte { margin: 0; display: flex; flex-direction: column; min-width: 0; }
+.grille .carte p { font-size: .93rem; }
+.grille .ou { margin-top: auto; }
+
+/* --- Boutons et formulaires --------------------------------------------- */
+
+.bouton {
+    display: inline-block;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--verre);
+    border: 1px solid var(--verre);
+    border-radius: 10px;
+    padding: .6rem 1.1rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.bouton:hover { background: var(--nuit); border-color: var(--nuit); color: #fff; }
+
+.bouton.discret {
+    color: var(--verre);
+    background: transparent;
+    border-color: var(--bordure);
+    padding: .4rem .8rem;
+    font-size: .9rem;
+}
+
+.bouton.discret:hover { background: var(--buee); color: var(--nuit); }
+.bouton.danger { color: var(--erreur); }
+.bouton.danger:hover { background: var(--erreur-fond); color: var(--erreur); }
+
+.formulaire { display: grid; gap: .5rem; justify-items: start; }
+.formulaire label { font-weight: 600; font-size: .93rem; }
+.formulaire .bouton { margin-top: .5rem; }
+.formulaire .aide { margin: 0; }
+.formulaire + .aide { margin-top: 1.25rem; }
+
+input:not([type="checkbox"]), textarea {
+    width: 100%;
+    font: inherit;
+    color: var(--nuit);
+    background: var(--fond);
+    border: 1px solid var(--bordure);
+    border-radius: 10px;
+    padding: .6rem .8rem;
+    margin-bottom: .5rem;
+}
+
+textarea { resize: vertical; }
+
+.case { display: flex; align-items: center; gap: .5rem; font-weight: 400 !important; }
+.case input { width: 1.1rem; height: 1.1rem; accent-color: var(--verre); }
+
+/* --- Messages ----------------------------------------------------------- */
+
+.message {
+    border-radius: 10px;
+    padding: .7rem 1rem;
+    font-weight: 600;
+    font-size: .95rem;
+}
+
+.message.succes { background: var(--buee); color: var(--nuit); border: 1px solid var(--lagon); }
+.message.info { background: #fff; color: var(--secondaire); border: 1px solid var(--bordure); }
+.message.erreur { background: var(--erreur-fond); color: var(--erreur); border: 1px solid var(--erreur); }
+
+.pastille {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--verre);
+    background: var(--buee);
+    border-radius: 999px;
+    padding: .2rem .7rem;
+}
+
+/* --- Notes -------------------------------------------------------------- */
+
+.notes { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .6rem; }
+
+.note, .vide {
+    background: #fff;
+    border: 1px solid var(--bordure);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+}
+
+.note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem 1.5rem;
+    border-left: 6px solid var(--bordure);
+}
+
+.note.importante { border-left-color: var(--lagon); }
+.note > div:first-child { flex: 1 1 16rem; min-width: 0; }
+.note a { font-weight: 600; overflow-wrap: anywhere; }
+.vide { color: var(--secondaire); }
+
+.actions { display: flex; align-items: center; gap: .5rem; }
+
+.etoile {
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--secondaire);
+    background: transparent;
+    border: 1px solid var(--bordure);
+    border-radius: 999px;
+    padding: .3rem .8rem;
+    cursor: pointer;
+}
+
+.etoile[aria-pressed="true"] { color: var(--nuit); background: var(--buee); border-color: var(--lagon); }
+.etoile[hidden] { display: none; }
+
+/* --- Pied --------------------------------------------------------------- */
+
+.pied { color: var(--secondaire); font-size: .88rem; border-top: 1px solid var(--bordure); margin-top: 2rem; }
+.pied p { margin: 0; }

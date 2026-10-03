@@ -1,0 +1,46 @@
+<k:layout name="base">
+<k:block name="titre">Mes notes</k:block>
+
+<k:block name="entete">
+    <!-- Le script de la page lit ce jeton et l'envoie dans l'en-tête X-CSRF-Token. -->
+    <meta name="jeton" content="{jeton}">
+    <!-- Un script du site lui-même : la politique de sécurité (CSP) l'autorise. -->
+    <script src="/app.js" defer></script>
+</k:block>
+
+<h1>Mes notes</h1>
+
+<section class="carte">
+    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">{erreur}</p>
+
+    <form method="post" action="/notes" class="formulaire">
+        <label for="texte">Nouvelle note</label>
+        <textarea id="texte" name="texte" rows="3" maxlength="{longueur_max}" required>{saisie}</textarea>
+        <p class="aide">{longueur_max} caractères au maximum.</p>
+        <button class="bouton">Ajouter</button>
+    </form>
+</section>
+
+<p class="compte" id="compte">
+    {notes | length} note(s), dont {importantes} importante(s).
+</p>
+
+<ul class="notes">
+    <li k:for="note in notes" class="{note.importante ? 'note importante' : 'note'}" data-note="{note.id}">
+        <div>
+            <!-- {note.texte} est échappé : une balise écrite dans une note s'affiche, elle ne s'exécute pas. -->
+            <a href="/notes/{note.id}">{note.texte}</a>
+            <p class="date">le {note.creee | date('d/m/Y')} à {note.creee | date('H:i')}</p>
+        </div>
+        <div class="actions">
+            <!-- Caché tant que le script n'est pas chargé : sans JavaScript, on passe par la page de la note. -->
+            <button type="button" class="etoile" hidden aria-pressed="{note.importante ? 'true' : 'false'}">Importante</button>
+            <form method="post" action="/notes/{note.id}/supprimer">
+                <button class="bouton discret danger">Supprimer</button>
+            </form>
+        </div>
+    </li>
+    <li k:else class="vide">Aucune note pour l'instant. Écrivez la première.</li>
+</ul>
+
+<p class="aide" k:if="adresse != null">Vous êtes connecté depuis l'adresse <code>{adresse}</code>.</p>

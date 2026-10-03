@@ -1,0 +1,24 @@
+<k:layout name="base">
+<k:block name="titre">Note n° {note.id}</k:block>
+
+<p><a href="/notes">← Mes notes</a></p>
+
+<section class="carte">
+    <h1>Note n° {note.id}</h1>
+    <p class="date">Écrite le {note.creee | date('d/m/Y')} à {note.creee | date('H:i')}</p>
+
+    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">{erreur}</p>
+
+    <form method="post" action="/notes/{note.id}" class="formulaire">
+        <label for="texte">Texte</label>
+        <textarea id="texte" name="texte" rows="4" maxlength="{longueur_max}" required>{saisie}</textarea>
+
+        <!-- checked="{…}" : l'attribut est écrit si la valeur est vraie, retiré si elle est fausse. -->
+        <label class="case">
+            <input type="checkbox" name="importante" value="1" checked="{note.importante}">
+            Importante
+        </label>
+
+        <button class="bouton">Enregistrer</button>
+    </form>
+</section>
