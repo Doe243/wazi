@@ -29,4 +29,14 @@ final class InvalidStreamException extends \InvalidArgumentException
             $givenType,
         ));
     }
+
+    public static function invalidMode(string $mode): self
+    {
+        return new self(sprintf(
+            '« %s » n\'est pas un mode d\'ouverture de fichier. Les plus courants : « r » pour lire,'
+            . ' « w » pour écrire en remplaçant le contenu, « a » pour écrire à la suite.'
+            . ' Ajoutez « + » pour lire et écrire à la fois, par exemple « r+ ».',
+            ValuePreview::of($mode),
+        ));
+    }
 }

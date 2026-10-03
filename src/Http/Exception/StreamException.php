@@ -76,4 +76,28 @@ final class StreamException extends \RuntimeException
             . ' dans son dossier temporaire (réglage sys_temp_dir du php.ini).',
         );
     }
+
+    /**
+     * Sécurité (ADR-006) : le message ne cite pas le chemin refusé, qui peut venir d'une requête.
+     */
+    public static function notALocalFile(): self
+    {
+        return new self(
+            'Ce chemin n\'est pas un simple chemin de fichier : il est vide, commence par un protocole'
+            . ' (comme « php:// », « phar:// » ou « http:// ») ou contient un caractère de contrôle.'
+            . ' Wazi le refuse, car ces adresses permettent de lire ou d\'exécuter autre chose qu\'un fichier'
+            . ' du disque. Si vous avez vraiment besoin d\'une telle adresse, ouvrez-la vous-même :'
+            . ' new Stream(fopen(\'php://temp\', \'r+\')).',
+        );
+    }
+
+    public static function cannotOpenFile(string $mode): self
+    {
+        return new self(sprintf(
+            'Impossible d\'ouvrir le fichier en mode « %s ». Pour une lecture, vérifiez que le fichier existe'
+            . ' et que PHP a le droit de le lire ; pour une écriture, que son dossier existe'
+            . ' et que PHP a le droit d\'y écrire.',
+            $mode,
+        ));
+    }
 }

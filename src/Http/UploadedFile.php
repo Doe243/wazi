@@ -51,11 +51,6 @@ final class UploadedFile implements UploadedFileInterface
         UPLOAD_ERR_EXTENSION => 'une extension de PHP a interrompu l\'envoi.',
     ];
 
-    /** Une adresse à protocole : « phar://... », « php://... ». Une seule lettre désigne un lecteur Windows (C:). */
-    private const string WRAPPER = '#^[a-zA-Z][a-zA-Z0-9+.\-]+://#';
-
-    private const string CONTROL_CHARACTER = '/[\x00-\x1F\x7F]/';
-
     /** Taille des morceaux lus quand le contenu est copié depuis un flux. */
     private const int CHUNK_SIZE = 1_048_576;
 
@@ -267,7 +262,7 @@ final class UploadedFile implements UploadedFileInterface
             throw InvalidUploadedFileException::emptyPath();
         }
 
-        if (preg_match(self::WRAPPER, $path) === 1 || preg_match(self::CONTROL_CHARACTER, $path) === 1) {
+        if (!LocalPath::isPlain($path)) {
             throw InvalidUploadedFileException::notALocalPath();
         }
     }
