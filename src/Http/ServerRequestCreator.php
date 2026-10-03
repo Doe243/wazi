@@ -73,9 +73,7 @@ final readonly class ServerRequestCreator
     /**
      * Construit la requête reçue, à partir des variables globales de PHP.
      *
-     * @throws RequestRejectedException si la requête est refusée (corps trop gros, hôte invalide...)
-     * @throws InvalidMessageException  si un en-tête ou la méthode est invalide
-     * @throws InvalidUriException      si l'adresse demandée est invalide
+     * @throws RequestRejectedException si la requête est refusée (corps trop gros, hôte invalide, requête mal formée...)
      */
     public function fromGlobals(): ServerRequest
     {
@@ -103,9 +101,7 @@ final readonly class ServerRequestCreator
      * @param array<array-key, mixed> $cookies de la forme de $_COOKIE
      * @param array<array-key, mixed> $files   de la forme de $_FILES
      *
-     * @throws RequestRejectedException si la requête est refusée (corps trop gros, hôte invalide...)
-     * @throws InvalidMessageException  si un en-tête ou la méthode est invalide
-     * @throws InvalidUriException      si l'adresse demandée est invalide
+     * @throws RequestRejectedException si la requête est refusée (corps trop gros, hôte invalide, requête mal formée...)
      */
     public function fromArrays(
         array $server,
@@ -117,14 +113,20 @@ final readonly class ServerRequestCreator
     ): ServerRequest {
         $this->assertBodySizeIsAllowed($server);
 
-        $request = new ServerRequest(
-            is_string($server['REQUEST_METHOD'] ?? null) ? $server['REQUEST_METHOD'] : 'GET',
-            $this->uriFrom($server),
-            self::headersFrom($server),
-            $body,
-            self::protocolVersionFrom($server),
-            $server,
-        );
+        try {
+            $request = new ServerRequest(
+                is_string($server['REQUEST_METHOD'] ?? null) ? $server['REQUEST_METHOD'] : 'GET',
+                $this->uriFrom($server),
+                self::headersFrom($server),
+                $body,
+                self::protocolVersionFrom($server),
+                $server,
+            );
+        } catch (InvalidUriException|InvalidMessageException $exception) {
+            // Une méthode, une adresse ou un en-tête invalide vient ici du client,
+            // pas de votre code : c'est une requête à refuser (400), pas un bogue.
+            throw RequestRejectedException::malformedRequest($exception);
+        }
 
         $request = $request
             ->withQueryParams($query)
