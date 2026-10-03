@@ -3,7 +3,13 @@
     "description": "Wazi, le framework PHP où tout est clair : puissant, simple, et pensé pour comprendre ce qu'on construit.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["framework", "psr-7", "psr-15", "pedagogique", "wazi"],
+    "keywords": [
+        "framework",
+        "psr-7",
+        "psr-15",
+        "pedagogique",
+        "wazi"
+    ],
     "require": {
         "php": "^8.5",
         "psr/container": "^2.0",
@@ -24,10 +30,14 @@
         "psr/http-message-implementation": "2.0"
     },
     "autoload": {
-        "psr-4": { "Wazi\\": "src/" }
+        "psr-4": {
+            "Wazi\\": "src/"
+        }
     },
     "autoload-dev": {
-        "psr-4": { "Wazi\\Tests\\": "tests/" }
+        "psr-4": {
+            "Wazi\\Tests\\": "tests/"
+        }
     },
     "scripts": {
         "test": "phpunit",
@@ -35,7 +45,13 @@
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "deptrac": "deptrac analyse --no-progress",
-        "check": ["@cs", "@stan", "@deptrac", "@test"]
+        "check": [
+            "@composer audit",
+            "@cs",
+            "@stan",
+            "@deptrac",
+            "@test"
+        ]
     },
     "scripts-descriptions": {
         "check": "Lance tous les contrôles qualité, comme l'intégration continue."

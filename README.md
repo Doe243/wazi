@@ -29,6 +29,10 @@ Les composants sont rangés en quatre couches. Une couche peut utiliser celles d
 
 Les décisions d'architecture sont consignées dans [`docs/decisions/`](docs/decisions/).
 
+## Sécurité
+
+Wazi applique une sécurité stricte par défaut. Pour signaler une faille, voir [`SECURITY.md`](SECURITY.md) : jamais dans une issue publique.
+
 ## Contribuer
 
 ```bash
