@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Wazi\View\Template;
 
 use Wazi\View\Exception\KiooException;
+use Wazi\View\Expression\Node;
 use Wazi\View\Expression\Parser;
 
 /**
@@ -36,6 +37,19 @@ final class TemplateParser
 
     private const string TAG_NAME = '/\G[a-zA-Z][a-zA-Z0-9:-]*/';
 
+    /** Les balises de Kioo. Les deux premières n'ont jamais de contenu. */
+    private const array KIOO_ELEMENTS = ['k:layout', 'k:include', 'k:block'];
+
+    private const array KIOO_VOID_ELEMENTS = ['k:layout', 'k:include'];
+
+    /** Les attributs de Kioo. */
+    private const array KIOO_ATTRIBUTES = ['k:if', 'k:else', 'k:for'];
+
+    /** k:for="note in notes" ou k:for="cle, note in notes". */
+    private const string FOR = '/^\s*(?:([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*)?([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.+)$/Ds';
+
+    private const string NAME = '/^[a-zA-Z_][a-zA-Z0-9_]*$/D';
+
     private string $source = '';
 
     private string $template = '';
@@ -54,6 +68,9 @@ final class TemplateParser
     /** @var list<TemplateNode> Ce qui se trouve en dehors de toute balise. */
     private array $root = [];
 
+    /** Vrai si le template commence par <k:layout> : ses <k:block> remplissent alors une mise en page. */
+    private bool $hasLayout = false;
+
     public function __construct(private readonly Parser $expressions = new Parser()) {}
 
     /**
@@ -71,6 +88,7 @@ final class TemplateParser
         $this->length = strlen($source);
         $this->open = [];
         $this->root = [];
+        $this->hasLayout = false;
 
         while ($this->position < $this->length) {
             match (true) {
@@ -111,7 +129,7 @@ final class TemplateParser
 
             if ($this->startsWith('/>')) {
                 $this->position += 2;
-                $this->append(new Element($name, $attributes, [], true, false, $line));
+                $this->append($this->element($name, $attributes, [], true, false, $line));
 
                 return;
             }
@@ -135,13 +153,20 @@ final class TemplateParser
         $lowerName = strtolower($name);
 
         if (in_array($lowerName, self::VOID_ELEMENTS, true)) {
-            $this->append(new Element($name, $attributes, [], false, false, $line));
+            $this->append($this->element($name, $attributes, [], false, false, $line));
+
+            return;
+        }
+
+        // <k:layout name="base"> et <k:include file="pied"> s'écrivent sans balise fermante.
+        if (in_array($lowerName, self::KIOO_VOID_ELEMENTS, true)) {
+            $this->append($this->element($name, $attributes, [], true, false, $line));
 
             return;
         }
 
         if (in_array($lowerName, self::RAW_TEXT_ELEMENTS, true)) {
-            $this->append(new Element($name, $attributes, [new Raw($this->readRawText($lowerName, $line))], false, true, $line));
+            $this->append($this->element($name, $attributes, [new Raw($this->readRawText($lowerName, $line))], false, true, $line));
 
             return;
         }
@@ -197,7 +222,169 @@ final class TemplateParser
             return;
         }
 
-        $this->append(new Element($frame['name'], $frame['attributes'], $frame['children'], false, $closed, $frame['line']));
+        $this->append($this->element($frame['name'], $frame['attributes'], $frame['children'], false, $closed, $frame['line']));
+    }
+
+    // ------------------------------------------------------------------
+    // Ce que Kioo ajoute au HTML
+    // ------------------------------------------------------------------
+
+    /**
+     * Construit une balise. Ses attributs k:if, k:for et k:else en sont retirés
+     * et deviennent une condition, une boucle, ou la marque « sinon ».
+     *
+     * @param list<Attribute>    $attributes
+     * @param list<TemplateNode> $children
+     */
+    private function element(string $name, array $attributes, array $children, bool $selfClosing, bool $closed, int $line): Element
+    {
+        $lowerName = strtolower($name);
+
+        if (str_starts_with($lowerName, 'k:')) {
+            $this->assertKiooElement($lowerName, $attributes, $selfClosing || $closed, $line);
+        }
+
+        $condition = null;
+        $loop = null;
+        $isElse = false;
+        $kept = [];
+
+        foreach ($attributes as $attribute) {
+            if (!str_starts_with($attribute->name, 'k:')) {
+                $kept[] = $attribute;
+
+                continue;
+            }
+
+            $value = is_string($attribute->parts[0] ?? null) ? $attribute->parts[0] : '';
+
+            match ($attribute->name) {
+                'k:if' => $condition = $this->directiveExpression('k:if', $value, $attribute->line),
+                'k:for' => $loop = $this->loop($value, $attribute->line),
+                'k:else' => $isElse = true,
+                default => throw $this->error(KiooException::unknownDirective($attribute->name, self::KIOO_ATTRIBUTES), $attribute->line),
+            };
+        }
+
+        $directives = (int) ($condition !== null) + (int) ($loop !== null) + (int) $isElse;
+
+        if ($directives > 1) {
+            throw $this->error(KiooException::conflictingDirectives($name), $line);
+        }
+
+        // Une structure vit et meurt avec sa balise : il faut savoir où elle finit.
+        $isVoid = in_array($lowerName, self::VOID_ELEMENTS, true);
+
+        if ($directives === 1 && !$closed && !$selfClosing && !$isVoid) {
+            throw $this->error(KiooException::directiveNeedsClosingTag($name), $line);
+        }
+
+        return new Element($name, $kept, $children, $selfClosing, $closed, $line, $condition, $loop, $isElse);
+    }
+
+    /**
+     * La valeur de k:if et de k:for est une expression écrite SANS accolades.
+     */
+    private function directiveExpression(string $directive, string $expression, int $line): Node
+    {
+        if (str_contains($expression, '{')) {
+            throw $this->error(KiooException::bracesInDirective($directive), $line);
+        }
+
+        try {
+            return $this->expressions->parse(html_entity_decode($expression, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        } catch (KiooException $exception) {
+            throw $this->error($exception, $line);
+        }
+    }
+
+    private function loop(string $value, int $line): Loop
+    {
+        if (preg_match(self::FOR, $value, $matches) !== 1) {
+            throw $this->error(KiooException::invalidFor(), $line);
+        }
+
+        return new Loop($matches[2], $matches[1] !== '' ? $matches[1] : null, $this->directiveExpression('k:for', $matches[3], $line));
+    }
+
+    /**
+     * Vérifie une balise <k:…> dès la lecture du template : une faute se voit
+     * tout de suite, pas le jour où la page est demandée.
+     *
+     * @param list<Attribute> $attributes
+     */
+    private function assertKiooElement(string $name, array $attributes, bool $hasEnd, int $line): void
+    {
+        if (!in_array($name, self::KIOO_ELEMENTS, true)) {
+            throw $this->error(KiooException::unknownDirective('<' . $name . '>', array_map(static fn(string $known): string => '<' . $known . '>', self::KIOO_ELEMENTS)), $line);
+        }
+
+        $required = $name === 'k:include' ? 'file' : 'name';
+        $found = false;
+
+        foreach ($attributes as $attribute) {
+            if ($attribute->name === $required) {
+                // Sécurité : le nom d'un template ou d'un bloc s'écrit en dur.
+                // Une valeur (qui peut venir d'un visiteur) ne doit pas choisir quel fichier est lu.
+                $isStatic = $attribute->parts !== null && count($attribute->parts) === 1 && is_string($attribute->parts[0]);
+
+                if (!$isStatic) {
+                    throw $this->error(KiooException::dynamicTemplateName($name, $required), $line);
+                }
+
+                $found = true;
+            } elseif ($name === 'k:include' && !str_starts_with($attribute->name, 'k:') && preg_match(self::NAME, $attribute->name) !== 1) {
+                throw $this->error(KiooException::invalidIncludeVariable($attribute->name), $attribute->line);
+            }
+        }
+
+        if (!$found) {
+            throw $this->error(KiooException::missingAttribute($name, $required), $line);
+        }
+
+        if ($name === 'k:block' && !$hasEnd) {
+            throw $this->error(KiooException::directiveNeedsClosingTag($name), $line);
+        }
+
+        if ($name === 'k:layout') {
+            if ($this->open !== [] || !$this->onlyWhitespaceSoFar()) {
+                throw $this->error(KiooException::layoutMustComeFirst(), $line);
+            }
+
+            $this->hasLayout = true;
+        }
+
+        // Dans une page qui utilise une mise en page, un bloc en remplit un
+        // emplacement : il se place au premier niveau, pas dans une autre balise.
+        if ($name === 'k:block' && $this->hasLayout && $this->open !== []) {
+            throw $this->error(KiooException::nestedBlock(), $line);
+        }
+    }
+
+    private function onlyWhitespaceSoFar(): bool
+    {
+        foreach ($this->root as $node) {
+            if (!self::isWhitespace($node) && !$node instanceof Raw) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function isWhitespace(TemplateNode $node): bool
+    {
+        if (!$node instanceof Text) {
+            return false;
+        }
+
+        foreach ($node->parts as $part) {
+            if (!is_string($part) || trim($part) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function parseAttribute(): Attribute
@@ -239,6 +426,22 @@ final class TemplateParser
         }
 
         $this->position++;
+
+        // La valeur d'un attribut k: est une expression, pas un texte à afficher :
+        // elle est gardée telle quelle, sans y chercher d'accolades.
+        if (str_starts_with($name, 'k:')) {
+            $end = strpos($this->source, $quote, $this->position);
+
+            if ($end === false) {
+                throw $this->error(KiooException::unterminated('La valeur de l\'attribut « ' . $name . ' »', $quote), $line);
+            }
+
+            $value = substr($this->source, $this->position, $end - $this->position);
+            $this->position = $end + 1;
+
+            return new Attribute($name, [$value], $quote, $line);
+        }
+
         $value = $this->readUntilUnescaped($quote, 'La valeur de l\'attribut « ' . $name . ' »', $line);
 
         return new Attribute($name, $this->attributeParts($name, $value, $line), $quote, $line);
@@ -435,12 +638,50 @@ final class TemplateParser
     private function append(TemplateNode $node): void
     {
         if ($this->open === []) {
-            $this->root[] = $node;
+            $this->root = $this->appendTo($this->root, $node);
 
             return;
         }
 
-        $this->open[array_key_last($this->open)]['children'][] = $node;
+        $last = array_key_last($this->open);
+        $this->open[$last]['children'] = $this->appendTo($this->open[$last]['children'], $node);
+    }
+
+    /**
+     * Ajoute un élément à une liste de voisins. Une balise k:else n'y est pas
+     * ajoutée : elle est rattachée à la balise k:if ou k:for qui la précède.
+     *
+     * @param list<TemplateNode> $siblings
+     *
+     * @return list<TemplateNode>
+     */
+    private function appendTo(array $siblings, TemplateNode $node): array
+    {
+        if (!$node instanceof Element || !$node->isElse) {
+            $siblings[] = $node;
+
+            return $siblings;
+        }
+
+        // On remonte les voisins en sautant les espaces et retours à la ligne.
+        for ($index = count($siblings) - 1; $index >= 0; $index--) {
+            $previous = $siblings[$index];
+
+            if (self::isWhitespace($previous)) {
+                continue;
+            }
+
+            if ($previous instanceof Element && ($previous->condition !== null || $previous->loop !== null) && $previous->otherwise === null) {
+                $siblings[$index] = $previous->withOtherwise($node);
+
+                // Les espaces entre les deux balises ne servent plus à rien.
+                return array_slice($siblings, 0, $index + 1);
+            }
+
+            break;
+        }
+
+        throw $this->error(KiooException::elseWithoutIf(), $node->line);
     }
 
     private function startsWith(string $text): bool

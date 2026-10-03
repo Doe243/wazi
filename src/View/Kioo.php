@@ -6,19 +6,36 @@ namespace Wazi\View;
 
 use Wazi\View\Exception\KiooException;
 use Wazi\View\Expression\Evaluator;
-use Wazi\View\Template\TemplateParser;
 
 /**
  * Kioo, le moteur de templates de Wazi (« kioo » : vitre, miroir en swahili).
  *
- * Un template Kioo est une page HTML ordinaire. On y affiche une valeur en
- * l'écrivant entre accolades :
+ * Un template Kioo est une page HTML ordinaire, rangée dans un fichier .kioo.
+ * On y affiche une valeur entre accolades, et quelques attributs k: décident
+ * de ce qui est écrit :
  *
- *     <h1>{titre | upper}</h1>
- *     <a href="/notes/{note.id}" class="note {note.type}">{note.texte}</a>
+ *     <k:layout name="base">
+ *     <k:block name="titre">Mon carnet</k:block>
  *
- * Le trajet d'un template, en trois étapes que vous pouvez ouvrir une à une :
+ *     <ul>
+ *         <li k:for="note in notes" class="note {note.type}">
+ *             <a href="/notes/{note.id}">{note.texte | upper}</a>
+ *         </li>
+ *         <li k:else>Aucune note pour l'instant.</li>
+ *     </ul>
  *
+ *     <k:include file="partiels/pied" annee="{annee}">
+ *
+ * Pour produire la page :
+ *
+ *     $kioo = new Kioo(__DIR__ . '/../views');
+ *     $html = $kioo->render('notes/liste', ['notes' => $notes, 'annee' => 2026]);
+ *
+ * Le trajet d'un template, en étapes que vous pouvez ouvrir une à une :
+ *
+ *     nom du template
+ *          │  TemplateLoader : trouve le fichier dans le dossier des vues
+ *          ▼
  *     texte du template
  *          │  TemplateParser : reconnaît balises, attributs et affichages
  *          ▼
@@ -27,31 +44,48 @@ use Wazi\View\Template\TemplateParser;
  *          ▼
  *     page HTML
  *
- * Rien n'est traduit en PHP ni gardé en cache : le template est lu et exécuté
- * directement (ADR-019).
+ * Rien n'est traduit en PHP ni gardé en cache sur le disque : le template est
+ * lu et exécuté directement (ADR-019).
  */
 final readonly class Kioo
 {
-    private TemplateParser $parser;
+    private TemplateLoader $loader;
 
     private Renderer $renderer;
 
     /**
-     * @param array<string, \Closure> $filters vos propres filtres, en plus de ceux de Filters : nom => fonction
+     * @param string|null             $viewsDirectory le dossier qui contient vos fichiers .kioo
+     * @param array<string, \Closure> $filters        vos propres filtres, en plus de ceux de Filters : nom => fonction
      */
-    public function __construct(array $filters = [])
+    public function __construct(?string $viewsDirectory = null, array $filters = [])
     {
-        $this->parser = new TemplateParser();
-        $this->renderer = new Renderer(new Evaluator([
-            ...Filters::defaults(),
-            ...$filters,
-            // Défini en dernier : aucun filtre de l'application ne peut prendre ce nom.
-            'unsafe_raw' => self::unsafeRaw(...),
-        ]));
+        $this->loader = new TemplateLoader($viewsDirectory);
+        $this->renderer = new Renderer(
+            new Evaluator([
+                ...Filters::defaults(),
+                ...$filters,
+                // Défini en dernier : aucun filtre de l'application ne peut prendre ce nom.
+                'unsafe_raw' => self::unsafeRaw(...),
+            ]),
+            $this->loader,
+        );
     }
 
     /**
-     * Produit une page à partir du texte d'un template.
+     * Produit la page d'un template du dossier des vues.
+     *
+     * @param string               $name      le nom du template, sans extension : « accueil », « notes/liste »
+     * @param array<string, mixed> $variables ce que le template peut afficher : nom => valeur
+     *
+     * @throws KiooException si le template est introuvable ou mal écrit, ou si une expression ne peut pas être calculée
+     */
+    public function render(string $name, array $variables = []): string
+    {
+        return $this->renderer->render($this->loader->load($name), $variables, $name);
+    }
+
+    /**
+     * Produit une page à partir du texte d'un template, sans passer par un fichier.
      *
      * @param array<string, mixed> $variables ce que le template peut afficher : nom => valeur
      * @param string               $name      le nom du template, cité dans les messages d'erreur
@@ -60,7 +94,7 @@ final readonly class Kioo
      */
     public function renderString(string $source, array $variables = [], string $name = 'template'): string
     {
-        return $this->renderer->render($this->parser->parse($source, $name), $variables, $name);
+        return $this->renderer->render($this->loader->parse($source, $name), $variables, $name);
     }
 
     /**

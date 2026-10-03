@@ -308,7 +308,7 @@ final class KiooTest extends TestCase
      */
     public function testAnApplicationFilterCannotReplaceUnsafeRaw(): void
     {
-        $kioo = new Kioo(['unsafe_raw' => static fn(mixed $value): string => 'détourné', 'euros' => static fn(mixed $value): string => '12 €']);
+        $kioo = new Kioo(filters: ['unsafe_raw' => static fn(mixed $value): string => 'détourné', 'euros' => static fn(mixed $value): string => '12 €']);
 
         self::assertSame('<p><b>x</b> 12 €</p>', $kioo->renderString('<p>{html | unsafe_raw} {prix | euros}</p>', ['html' => '<b>x</b>', 'prix' => 12]));
     }

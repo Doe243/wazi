@@ -129,6 +129,8 @@ final class ParserTest extends TestCase
         yield 'opérateurs de PHP' => ['a && b', 'caractère que Kioo ne comprend pas'];
         yield 'variable de PHP' => ['$titre', 'caractère que Kioo ne comprend pas'];
         yield 'comparaisons enchaînées' => ['1 < a < 10', 'a < b and b < c'];
+        yield 'opérateur après un filtre' => ['notes | length > 1', '(valeur | length) > 1'];
+        yield 'calcul après un filtre' => ['prix | number + 1', 'entourez-le de parenthèses'];
         yield 'appel de fonction' => ['strtoupper(titre)', 'la fin de l\'expression ou un opérateur'];
         yield 'accolade' => ['{a}', 'caractère que Kioo ne comprend pas'];
     }
