@@ -1,6 +1,6 @@
 # ADR-013 : middlewares PSR-15 et en-têtes de sécurité par défaut
 
-**Statut :** acceptée
+**Statut :** acceptée — point 4 (contenu de la politique CSP) remplacé par l'ADR-014
 
 ## Contexte
 La version 0.2 introduit les middlewares. Deux décisions : comment une application déclare les siens, et quels en-têtes de sécurité portent les réponses ordinaires (jusqu'ici, seules les pages d'erreur en avaient). L'ADR-006 demande que toute protection soit active par défaut et que la retirer demande un geste explicite, nommé et local.

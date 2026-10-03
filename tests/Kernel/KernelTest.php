@@ -158,7 +158,7 @@ final class KernelTest extends TestCase
 
     public function testTheSecurityHeadersCanBeConfigured(): void
     {
-        $app = new Kernel(securityHeaders: new SecurityHeaders("default-src 'none'"));
+        $app = new Kernel(securityHeaders: new SecurityHeaders(contentSecurityPolicy: "default-src 'none'"));
         $app->router->get('/', static fn(): ResponseInterface => new Response());
 
         self::assertSame("default-src 'none'", $app->handle(new ServerRequest('GET', '/'))->getHeaderLine('Content-Security-Policy'));
