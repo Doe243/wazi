@@ -1,24 +1,45 @@
 <k:layout name="base">
 <k:block name="titre">Note n° {note.id}</k:block>
 
-<p><a href="/notes">← Mes notes</a></p>
+<p>
+    <a class="lien-retour" href="/notes">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#retour"></use></svg>
+        Mes notes
+    </a>
+</p>
 
-<section class="carte">
+<section class="carte moyenne note-edition {saisie_couleur}">
     <h1>Note n° {note.id}</h1>
-    <p class="date">Écrite le {note.creee | date('d/m/Y')} à {note.creee | date('H:i')}</p>
+    <p class="aide">Écrite {note.creee | depuis}, le {note.creee | date('d/m/Y à H:i')}</p>
 
-    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">{erreur}</p>
+    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#panne"></use></svg>
+        {erreur}
+    </p>
 
     <form method="post" action="/notes/{note.id}" class="formulaire">
         <label for="texte">Texte</label>
-        <textarea id="texte" name="texte" rows="4" maxlength="{longueur_max}" required>{saisie}</textarea>
+        <textarea id="texte" name="texte" rows="5" maxlength="{longueur_max}" required data-compteur="reste">{saisie}</textarea>
+        <span class="aide" id="reste">{longueur_max} caractères au maximum</span>
+
+        <k:include file="partiels/couleurs" couleurs="{couleurs}" choisie="{saisie_couleur}">
 
         <!-- checked="{…}" : l'attribut est écrit si la valeur est vraie, retiré si elle est fausse. -->
         <label class="case">
-            <input type="checkbox" name="importante" value="1" checked="{note.importante}">
-            Importante
+            <input type="checkbox" name="importante" value="1" checked="{saisie_importante}">
+            Épingler cette note en haut du carnet
         </label>
 
-        <button class="bouton">Enregistrer</button>
+        <div class="formulaire-actions">
+            <button class="bouton">Enregistrer</button>
+            <a class="bouton discret" href="/notes">Annuler</a>
+        </div>
     </form>
 </section>
+
+<form method="post" action="/notes/{note.id}/supprimer" class="moyenne zone-danger" data-confirmer>
+    <button class="bouton discret danger">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#corbeille"></use></svg>
+        Supprimer cette note
+    </button>
+</form>

@@ -1,229 +1,742 @@
-/* L'identité « Verre et lumière » de Wazi : voir docs/brand/README.md. */
+/*
+ * L'identité « Verre et lumière » de Wazi : voir docs/brand/README.md.
+ *
+ * Des surfaces claires, des traits fins, du verre translucide. Pas d'ombre
+ * portée, pas de dégradé : la profondeur vient de ce qu'on voit à travers.
+ */
+
+/* --- Couleurs -------------------------------------------------------------
+   Chaque couleur a un nom. Le thème sombre redonne une valeur aux mêmes noms :
+   le reste de la feuille n'a pas à le savoir. */
 
 :root {
-    --nuit: #0D2B30;
-    --verre: #0B6E70;
-    --lagon: #12A3A0;
-    --buee: #D6EEEC;
     --fond: #F3F8F8;
-    --bordure: #C5DAD9;
+    --surface: #FFFFFF;
+    --texte: #0D2B30;
     --secondaire: #3F5B5F;
+    --bordure: #C5DAD9;
+    --buee: #D6EEEC;
+    --lien: #0B6E70;
+    --bouton: #0B6E70;
+    --bouton-survol: #0D2B30;
+    --bouton-texte: #FFFFFF;
+    --lagon: #12A3A0;
     --erreur: #8E1B21;
     --erreur-fond: #FBE9EA;
+    --code-fond: #0D2B30;
+    --code-bordure: #0D2B30;
+    --verre: rgb(18 163 160 / .16);
+    --verre-trait: rgb(18 163 160 / .45);
+
+    --note-lagon: #E1F4F3;   --note-lagon-trait: #9BD8D5;
+    --note-miel: #FDF2D9;    --note-miel-trait: #EBCB8B;
+    --note-corail: #FCEAE7;  --note-corail-trait: #EDB5AD;
+    --note-ciel: #E5EFFB;    --note-ciel-trait: #AECAEE;
+
+    --montrer-lune: inline;
+    --montrer-soleil: none;
 }
 
-* { box-sizing: border-box; }
+/* Le thème sombre : choisi par l'appareil, sauf si le visiteur a choisi « clair »… */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --fond: #081E22;
+        --surface: #0D2B30;
+        --texte: #F3F8F8;
+        --secondaire: #A9C6C5;
+        --bordure: #21494E;
+        --buee: #153C41;
+        --lien: #5FD6D2;
+        --bouton: #5FD6D2;
+        --bouton-survol: #F3F8F8;
+        --bouton-texte: #081E22;
+        --lagon: #5FD6D2;
+        --erreur: #F3A7AB;
+        --erreur-fond: #47191C;
+        --code-fond: #051518;
+        --code-bordure: #21494E;
+        --verre: rgb(95 214 210 / .12);
+        --verre-trait: rgb(95 214 210 / .4);
+
+        --note-lagon: #103A3D;   --note-lagon-trait: #1F6E70;
+        --note-miel: #383016;    --note-miel-trait: #7D652A;
+        --note-corail: #3F2220;  --note-corail-trait: #7E3D37;
+        --note-ciel: #142D47;    --note-ciel-trait: #315F90;
+
+        --montrer-lune: none;
+        --montrer-soleil: inline;
+    }
+}
+
+/* … ou choisi par le visiteur, avec le bouton du bandeau (voir theme.js). */
+:root[data-theme="dark"] {
+    --fond: #081E22;
+    --surface: #0D2B30;
+    --texte: #F3F8F8;
+    --secondaire: #A9C6C5;
+    --bordure: #21494E;
+    --buee: #153C41;
+    --lien: #5FD6D2;
+    --bouton: #5FD6D2;
+    --bouton-survol: #F3F8F8;
+    --bouton-texte: #081E22;
+    --lagon: #5FD6D2;
+    --erreur: #F3A7AB;
+    --erreur-fond: #47191C;
+    --code-fond: #051518;
+    --code-bordure: #21494E;
+    --verre: rgb(95 214 210 / .12);
+    --verre-trait: rgb(95 214 210 / .4);
+
+    --note-lagon: #103A3D;   --note-lagon-trait: #1F6E70;
+    --note-miel: #383016;    --note-miel-trait: #7D652A;
+    --note-corail: #3F2220;  --note-corail-trait: #7E3D37;
+    --note-ciel: #142D47;    --note-ciel-trait: #315F90;
+
+    --montrer-lune: none;
+    --montrer-soleil: inline;
+}
+
+/* --- Base ----------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-padding-top: 5rem; }
 
 body {
     margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     background: var(--fond);
-    color: var(--nuit);
+    color: var(--texte);
     font-family: 'Sora', system-ui, sans-serif;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
 }
 
-.bandeau, main, .pied {
-    max-width: 52rem;
+main {
+    flex: 1;
+    width: 100%;
+    max-width: 68rem;
     margin: 0 auto;
-    padding: 1.25rem;
+    padding: 2rem 1.25rem 3rem;
 }
 
-/* --- Bandeau ------------------------------------------------------------ */
+h1 { font-size: 2rem; line-height: 1.15; letter-spacing: -.035em; margin: 0 0 .75rem; text-wrap: balance; }
+h2 { font-size: 1.4rem; line-height: 1.25; letter-spacing: -.025em; margin: 0 0 .5rem; }
+h3 { font-size: 1.02rem; letter-spacing: -.01em; margin: 0 0 .4rem; }
+p { margin: 0 0 1rem; }
+
+a { color: var(--lien); text-underline-offset: .2em; text-decoration-thickness: 1px; }
+a:hover { color: var(--texte); }
+
+code, .ou, pre {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+code {
+    font-size: .86em;
+    background: var(--buee);
+    border-radius: 6px;
+    padding: .12em .4em;
+    overflow-wrap: anywhere;
+}
+
+.aide { color: var(--secondaire); font-size: .88rem; }
+.centre { text-align: center; }
+.chapo { color: var(--secondaire); font-size: 1.05rem; max-width: 38rem; }
+
+/* Lu par un lecteur d'écran, invisible à l'écran. */
+.lecteur {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.icone { width: 1.2em; height: 1.2em; flex: none; vertical-align: -.22em; }
+
+:focus-visible { outline: 3px solid var(--lagon); outline-offset: 2px; border-radius: 6px; }
+
+/* Le lien « Aller au contenu » n'apparaît qu'au clavier. */
+.evitement {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 20;
+    background: var(--surface);
+    border: 1px solid var(--bordure);
+    border-radius: 10px;
+    padding: .5rem .9rem;
+}
+
+.evitement:focus { top: .75rem; }
+
+/* --- Bandeau : une vitre posée sur la page --------------------------------- */
 
 .bandeau {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--fond) 72%, transparent);
+    backdrop-filter: blur(14px) saturate(1.5);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    border-bottom: 1px solid var(--bordure);
+}
+
+.bandeau-interieur {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: .7rem 1.25rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: .75rem 1.5rem;
+    gap: .5rem 1.5rem;
 }
 
 .marque {
     display: flex;
     align-items: center;
     gap: .6rem;
-    color: var(--nuit);
+    color: var(--texte);
     text-decoration: none;
     font-weight: 700;
     font-size: 1.35rem;
     letter-spacing: -.03em;
 }
 
-nav, nav form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .75rem;
-}
+.marque-gauche { stroke: var(--texte); }
+.marque-droite { stroke: var(--lagon); }
 
-/* --- Texte -------------------------------------------------------------- */
+nav, .compte { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
 
-h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -.03em; margin: 0 0 1rem; text-wrap: balance; }
-h2 { font-size: 1.25rem; letter-spacing: -.02em; margin: 2.5rem 0 1rem; }
-h3 { font-size: 1rem; margin: 0 0 .4rem; }
-p { margin: 0 0 1rem; }
-
-a { color: var(--verre); text-underline-offset: .2em; }
-a:hover { color: var(--nuit); }
-
-code {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: .88em;
-    background: var(--buee);
-    border-radius: 6px;
-    padding: .1em .4em;
-    overflow-wrap: anywhere;
-}
-
-.aide, .date, .compte, .ou { color: var(--secondaire); font-size: .88rem; }
-.date, .ou { margin: 0; }
-.ou { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .8rem; overflow-wrap: anywhere; }
-
-:focus-visible { outline: 3px solid var(--lagon); outline-offset: 2px; }
-
-/* --- Cartes ------------------------------------------------------------- */
-
-.carte {
-    background: #fff;
-    border: 1px solid var(--bordure);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.carte > :last-child { margin-bottom: 0; }
-.etroite { max-width: 28rem; margin-inline: auto; }
-
-.hero { padding: 2rem 0 1rem; max-width: 36rem; }
-.hero h1 { font-size: clamp(2rem, 6vw, 2.75rem); }
-.hero p { color: var(--secondaire); font-size: 1.05rem; }
-
-.grille {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 1rem;
-}
-
-.grille .carte { margin: 0; display: flex; flex-direction: column; min-width: 0; }
-.grille .carte p { font-size: .93rem; }
-.grille .ou { margin-top: auto; }
-
-/* --- Boutons et formulaires --------------------------------------------- */
-
-.bouton {
-    display: inline-block;
-    font: inherit;
+.lien-nav {
+    color: var(--texte);
     font-weight: 600;
-    color: #fff;
-    background: var(--verre);
-    border: 1px solid var(--verre);
-    border-radius: 10px;
-    padding: .6rem 1.1rem;
+    font-size: .95rem;
     text-decoration: none;
-    cursor: pointer;
+    padding: .35rem .6rem;
+    border-radius: 8px;
 }
 
-.bouton:hover { background: var(--nuit); border-color: var(--nuit); color: #fff; }
+.lien-nav:hover { background: var(--buee); }
 
-.bouton.discret {
-    color: var(--verre);
-    background: transparent;
-    border-color: var(--bordure);
-    padding: .4rem .8rem;
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--buee);
+    border: 1px solid var(--verre-trait);
+    color: var(--lien);
+    font-weight: 700;
     font-size: .9rem;
 }
 
-.bouton.discret:hover { background: var(--buee); color: var(--nuit); }
-.bouton.danger { color: var(--erreur); }
-.bouton.danger:hover { background: var(--erreur-fond); color: var(--erreur); }
+.compte-nom { font-weight: 600; font-size: .95rem; }
 
-.formulaire { display: grid; gap: .5rem; justify-items: start; }
-.formulaire label { font-weight: 600; font-size: .93rem; }
-.formulaire .bouton { margin-top: .5rem; }
-.formulaire .aide { margin: 0; }
+.si-clair { display: var(--montrer-lune); }
+.si-sombre { display: var(--montrer-soleil); }
+
+/* --- Boutons -------------------------------------------------------------- */
+
+.bouton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    font: inherit;
+    font-weight: 600;
+    color: var(--bouton-texte);
+    background: var(--bouton);
+    border: 1px solid var(--bouton);
+    border-radius: 10px;
+    padding: .62rem 1.15rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s, color .15s, transform .15s;
+}
+
+.bouton:hover { background: var(--bouton-survol); border-color: var(--bouton-survol); color: var(--bouton-texte); }
+.bouton:active { transform: scale(.98); }
+.bouton .icone { transition: transform .15s; }
+.bouton:hover .icone { transform: translateX(2px); }
+
+.bouton.petit { padding: .4rem .85rem; font-size: .9rem; }
+.bouton.large { width: 100%; }
+
+.bouton.discret {
+    color: var(--lien);
+    background: transparent;
+    border-color: var(--bordure);
+}
+
+.bouton.discret:hover { background: var(--buee); color: var(--texte); border-color: var(--bordure); }
+
+.bouton.danger { color: var(--erreur); background: transparent; border-color: var(--bordure); }
+.bouton.danger:hover { background: var(--erreur-fond); color: var(--erreur); border-color: var(--erreur); }
+.bouton.danger:hover .icone { transform: none; }
+
+.bouton-icone {
+    display: inline-grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
+    font: inherit;
+    color: var(--secondaire);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background-color .15s, color .15s, border-color .15s;
+}
+
+.bouton-icone:hover { color: var(--texte); background: color-mix(in srgb, var(--texte) 9%, transparent); }
+.bouton-icone.danger:hover { color: var(--erreur); background: var(--erreur-fond); }
+.bouton-icone[hidden] { display: none; }
+.bouton-icone .icone { vertical-align: 0; }
+
+/* --- Cartes ---------------------------------------------------------------- */
+
+.carte {
+    background: var(--surface);
+    border: 1px solid var(--bordure);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.carte > :last-child { margin-bottom: 0; }
+
+.etroite { max-width: 27rem; margin-inline: auto; }
+.moyenne { max-width: 40rem; margin-inline: auto; }
+
+.pictogramme {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    background: var(--verre);
+    border: 1px solid var(--verre-trait);
+    color: var(--lien);
+}
+
+.pictogramme .icone { width: 1.35rem; height: 1.35rem; vertical-align: 0; }
+.centre .pictogramme { margin-inline: auto; }
+
+section + section { margin-top: 4rem; }
+
+/* --- Accueil --------------------------------------------------------------- */
+
+.hero {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    align-items: center;
+    gap: 2.5rem 3rem;
+    padding: 2.5rem 0 1rem;
+}
+
+.surtitre {
+    display: inline-block;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--lien);
+    background: var(--verre);
+    border: 1px solid var(--verre-trait);
+    border-radius: 999px;
+    padding: .2rem .8rem;
+    margin-bottom: 1.25rem;
+}
+
+.hero h1 { font-size: clamp(2.3rem, 5.5vw, 3.4rem); line-height: 1.05; letter-spacing: -.045em; margin-bottom: 1.25rem; }
+.accent { color: var(--lien); }
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin: 1.75rem 0 0; }
+
+/* La vitrine : un extrait de code, et deux panneaux de verre posés dessus,
+   comme les deux panneaux du logo. On lit le code à travers. */
+.vitrine { position: relative; padding: 1.5rem 1rem 1.5rem 0; min-width: 0; }
+
+.code {
+    position: relative;
+    margin: 0;
+    padding: 1.4rem 1.5rem;
+    background: var(--code-fond);
+    border: 1px solid var(--code-bordure);
+    border-radius: 16px;
+    color: #F3F8F8;
+    font-size: .8rem;
+    line-height: 1.75;
+    overflow-x: auto;
+}
+
+.code .c { color: #8FB0AF; }
+.code .a { color: #5FD6D2; }
+.code .m { color: #F2C879; }
+.code .t { color: #F2C879; }
+
+.verre {
+    position: absolute;
+    border-radius: 22px;
+    background: var(--verre);
+    border: 1px solid var(--verre-trait);
+}
+
+.verre-1 { inset: 0 0 42% 30%; transform: rotate(3deg); }
+
+/* Le second panneau passe DEVANT le code, sans le flouter : on lit à travers. */
+.verre-2 { inset: 58% -1% -2% 58%; transform: rotate(-4deg); z-index: 1; }
+
+/* Le chemin d'une requête : des étapes numérotées. */
+.chemin {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: .75rem;
+    counter-reset: etape;
+}
+
+.chemin li {
+    counter-increment: etape;
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--bordure);
+    border-radius: 14px;
+    padding: .9rem 1rem 1rem;
+    color: var(--secondaire);
+    font-size: .85rem;
+    line-height: 1.4;
+}
+
+.chemin li::before {
+    content: counter(etape);
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-bottom: .6rem;
+    border-radius: 50%;
+    background: var(--verre);
+    border: 1px solid var(--verre-trait);
+    color: var(--lien);
+    font-weight: 700;
+    font-size: .75rem;
+}
+
+.chemin span {
+    display: block;
+    color: var(--texte);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: .82rem;
+    margin-bottom: .15rem;
+    overflow-wrap: anywhere;
+}
+
+.grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.grille .carte {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: border-color .2s, transform .2s;
+}
+
+.grille .carte:hover { border-color: var(--lagon); transform: translateY(-2px); }
+.grille .carte p { font-size: .93rem; color: var(--secondaire); }
+.grille .carte .ou { margin: auto 0 0; padding-top: .5rem; font-size: .76rem; color: var(--lien); overflow-wrap: anywhere; }
+
+/* --- Formulaires ------------------------------------------------------------ */
+
+.formulaire { display: grid; gap: .5rem; }
+.formulaire > label { font-weight: 600; font-size: .92rem; margin-top: .5rem; }
+.formulaire > .bouton { margin-top: 1rem; }
 .formulaire + .aide { margin-top: 1.25rem; }
+.formulaire-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
 
-input:not([type="checkbox"]), textarea {
+input:not([type="checkbox"], [type="radio"]), textarea {
     width: 100%;
     font: inherit;
-    color: var(--nuit);
+    color: var(--texte);
     background: var(--fond);
     border: 1px solid var(--bordure);
     border-radius: 10px;
-    padding: .6rem .8rem;
-    margin-bottom: .5rem;
+    padding: .65rem .85rem;
+    transition: border-color .15s, background-color .15s;
 }
 
-textarea { resize: vertical; }
+/* Un anneau de couleur autour du champ actif (ce n'est pas une ombre portée). */
+input:not([type="checkbox"], [type="radio"]):focus, textarea:focus {
+    outline: none;
+    border-color: var(--lagon);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--verre);
+}
 
-.case { display: flex; align-items: center; gap: .5rem; font-weight: 400 !important; }
-.case input { width: 1.1rem; height: 1.1rem; accent-color: var(--verre); }
+::placeholder { color: var(--secondaire); opacity: .8; }
+textarea { resize: vertical; min-height: 4.5rem; }
 
-/* --- Messages ----------------------------------------------------------- */
+.case { display: flex; align-items: center; gap: .55rem; font-weight: 400 !important; font-size: .95rem; cursor: pointer; }
+.case input { width: 1.1rem; height: 1.1rem; accent-color: var(--bouton); }
+
+/* Le choix d'une couleur : des pastilles, qui sont en réalité des boutons radio. */
+.couleurs { display: flex; align-items: center; gap: .45rem; border: 0; margin: 0; padding: 0; }
+.couleurs legend { float: left; margin-right: .35rem; padding: 0; font-size: .88rem; color: var(--secondaire); }
+
+.pastille-couleur {
+    --teinte: var(--surface);
+    --trait: var(--bordure);
+    position: relative;
+    display: block;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--teinte);
+    border: 1.5px solid var(--trait);
+    cursor: pointer;
+    transition: transform .15s;
+}
+
+.pastille-couleur:hover { transform: scale(1.12); }
+.pastille-couleur input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.pastille-couleur:has(input:checked) { outline: 2px solid var(--texte); outline-offset: 2px; }
+.pastille-couleur:has(input:focus-visible) { outline: 3px solid var(--lagon); outline-offset: 2px; }
+
+/* Une couleur de note = deux valeurs, la teinte du fond et celle du trait.
+   Ces classes servent aux pastilles, aux cartes et à la page d'une note. */
+.note.lagon, .pastille-couleur.lagon, .note-edition.lagon { --teinte: var(--note-lagon); --trait: var(--note-lagon-trait); }
+.note.miel, .pastille-couleur.miel, .note-edition.miel { --teinte: var(--note-miel); --trait: var(--note-miel-trait); }
+.note.corail, .pastille-couleur.corail, .note-edition.corail { --teinte: var(--note-corail); --trait: var(--note-corail-trait); }
+.note.ciel, .pastille-couleur.ciel, .note-edition.ciel { --teinte: var(--note-ciel); --trait: var(--note-ciel-trait); }
+
+/* --- Messages ---------------------------------------------------------------- */
+
+.messages { margin-bottom: 1.5rem; }
 
 .message {
-    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    border-radius: 12px;
     padding: .7rem 1rem;
     font-weight: 600;
     font-size: .95rem;
+    animation: apparition .35s ease-out;
 }
 
-.message.succes { background: var(--buee); color: var(--nuit); border: 1px solid var(--lagon); }
-.message.info { background: #fff; color: var(--secondaire); border: 1px solid var(--bordure); }
+.message .icone { vertical-align: 0; }
+.message.succes { background: var(--buee); color: var(--texte); border: 1px solid var(--verre-trait); }
+.message.succes .icone { color: var(--lien); }
 .message.erreur { background: var(--erreur-fond); color: var(--erreur); border: 1px solid var(--erreur); }
+.message.info { background: var(--fond); color: var(--secondaire); border: 1px solid var(--bordure); }
 
-.pastille {
-    font-size: .8rem;
-    font-weight: 600;
-    color: var(--verre);
-    background: var(--buee);
-    border-radius: 999px;
-    padding: .2rem .7rem;
+/* --- Le carnet ----------------------------------------------------------------- */
+
+.tete-de-page {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    margin-bottom: 1.5rem;
 }
 
-/* --- Notes -------------------------------------------------------------- */
+.tete-de-page h1 { margin-bottom: .15rem; }
+.compte-notes { margin: 0; color: var(--secondaire); font-size: .92rem; }
 
-.notes { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .6rem; }
+.recherche { position: relative; flex: 0 1 19rem; }
+.recherche .icone { position: absolute; left: .85rem; top: 50%; translate: 0 -50%; color: var(--secondaire); pointer-events: none; }
+.recherche input { padding-left: 2.6rem; border-radius: 999px; background: var(--surface); }
 
-.note, .vide {
-    background: #fff;
-    border: 1px solid var(--bordure);
-    border-radius: 16px;
-    padding: 1rem 1.25rem;
-}
+.redaction { padding: 1rem; margin-bottom: 1.75rem; transition: border-color .15s; }
+.redaction textarea { border-color: transparent; background: transparent; padding: .35rem .5rem; resize: none; font-size: 1.02rem; }
+.redaction textarea:focus { background: transparent; border-color: transparent; box-shadow: none; }
+.redaction:focus-within { border-color: var(--lagon); box-shadow: 0 0 0 3px var(--verre); }
 
-.note {
+.redaction-pied {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: .75rem 1.5rem;
-    border-left: 6px solid var(--bordure);
+    gap: .75rem 1.25rem;
+    padding: .25rem .5rem 0;
 }
 
-.note.importante { border-left-color: var(--lagon); }
-.note > div:first-child { flex: 1 1 16rem; min-width: 0; }
-.note a { font-weight: 600; overflow-wrap: anywhere; }
-.vide { color: var(--secondaire); }
+.redaction-pied .aide { margin-left: auto; font-variant-numeric: tabular-nums; }
+.aide.presque { color: var(--erreur); font-weight: 600; }
 
-.actions { display: flex; align-items: center; gap: .5rem; }
+.filtres { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1.25rem; }
+.filtres .aide { margin-left: .5rem; }
 
-.etoile {
-    font: inherit;
-    font-size: .85rem;
+.filtre {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .88rem;
     font-weight: 600;
     color: var(--secondaire);
-    background: transparent;
+    text-decoration: none;
     border: 1px solid var(--bordure);
     border-radius: 999px;
-    padding: .3rem .8rem;
-    cursor: pointer;
+    padding: .3rem .9rem;
+    transition: background-color .15s, color .15s;
 }
 
-.etoile[aria-pressed="true"] { color: var(--nuit); background: var(--buee); border-color: var(--lagon); }
-.etoile[hidden] { display: none; }
+.filtre:hover { background: var(--buee); color: var(--texte); }
+.filtre[aria-current="page"] { color: var(--bouton-texte); background: var(--bouton); border-color: var(--bouton); }
+.filtre .icone { width: 1em; height: 1em; vertical-align: 0; }
 
-/* --- Pied --------------------------------------------------------------- */
+.notes {
+    list-style: none;
+    margin: 0 0 2rem;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16.5rem), 1fr));
+    gap: 1rem;
+}
 
-.pied { color: var(--secondaire); font-size: .88rem; border-top: 1px solid var(--bordure); margin-top: 2rem; }
+.note {
+    --teinte: var(--surface);
+    --trait: var(--bordure);
+    display: flex;
+    flex-direction: column;
+    min-height: 9.5rem;
+    background: var(--teinte);
+    border: 1px solid var(--trait);
+    border-radius: 16px;
+    padding: 1.1rem 1.15rem .7rem;
+    transition: transform .2s, border-color .2s;
+    animation: apparition .4s ease-out backwards;
+}
+
+.note:hover { transform: translateY(-3px); border-color: var(--lagon); }
+
+/* Une note épinglée : un trait plus épais. Le retrait compense le trait, pour que rien ne bouge. */
+.note.importante { border-width: 2px; border-color: var(--lagon); padding: calc(1.1rem - 1px) calc(1.15rem - 1px) calc(.7rem - 1px); }
+
+.note-texte {
+    flex: 1;
+    color: var(--texte);
+    font-size: 1rem;
+    line-height: 1.5;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.note-texte:hover { color: var(--texte); }
+
+.note-pied {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-top: .9rem;
+    color: var(--secondaire);
+    font-size: .8rem;
+}
+
+.actions { display: flex; align-items: center; gap: .1rem; margin-right: -.4rem; }
+.actions form { display: contents; }
+
+.epingle[aria-pressed="true"] { color: var(--lien); background: var(--verre); border-color: var(--verre-trait); }
+.epingle[aria-pressed="true"] .icone { fill: currentColor; }
+
+.vide {
+    grid-column: 1 / -1;
+    display: grid;
+    justify-items: center;
+    gap: .75rem;
+    padding: 3rem 1.5rem;
+    border: 1px dashed var(--bordure);
+    border-radius: 16px;
+    color: var(--secondaire);
+    text-align: center;
+}
+
+.vide .icone { width: 2.5rem; height: 2.5rem; color: var(--lagon); }
+.vide p { margin: 0; }
+
+/* La page d'une note */
+.lien-retour { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; font-size: .92rem; text-decoration: none; }
+.note-edition { --teinte: var(--surface); --trait: var(--bordure); background: var(--teinte); border-color: var(--trait); }
+.note-edition textarea { background: color-mix(in srgb, var(--surface) 65%, transparent); }
+.zone-danger { margin-top: 1rem; display: flex; justify-content: flex-end; }
+
+/* --- Fenêtre de confirmation ------------------------------------------------------ */
+
+.fenetre {
+    width: min(24rem, calc(100vw - 2.5rem));
+    color: var(--texte);
+    background: var(--surface);
+    border: 1px solid var(--bordure);
+    border-radius: 18px;
+    padding: 1.5rem;
+}
+
+.fenetre[open] { animation: apparition .2s ease-out; }
+.fenetre h2 { font-size: 1.15rem; }
+.fenetre p { color: var(--secondaire); }
+.fenetre-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.25rem; }
+
+.fenetre::backdrop {
+    background: rgb(8 30 34 / .45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* --- Pied -------------------------------------------------------------------------- */
+
+.pied { border-top: 1px solid var(--bordure); color: var(--secondaire); font-size: .86rem; }
+
+.pied-interieur {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: .25rem 2rem;
+}
+
 .pied p { margin: 0; }
+
+/* --- Mouvement ------------------------------------------------------------------------ */
+
+@keyframes apparition {
+    from { opacity: 0; transform: translateY(6px); }
+}
+
+/* Le passage d'une page à l'autre se fait en fondu, là où le navigateur le permet. */
+@view-transition { navigation: auto; }
+
+/* Certains visiteurs demandent à leur appareil de réduire les animations : on les respecte. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* --- Écrans étroits ---------------------------------------------------------------------- */
+
+@media (max-width: 34rem) {
+    .compte-nom { display: none; }
+    .hero { padding-top: 1rem; }
+    .note-edition .couleurs { margin-top: .5rem; }
+}

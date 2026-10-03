@@ -1,0 +1,10 @@
+<!-- Le choix de la couleur d'une note : une pastille par couleur permise.
+     Ce morceau ne voit que ce qu'on lui passe : la liste, et la couleur choisie. -->
+<fieldset class="couleurs">
+    <legend>Couleur</legend>
+    <!-- checked="{…}" : l'attribut est écrit si la comparaison est vraie, retiré sinon. -->
+    <label k:for="couleur in couleurs" class="pastille-couleur {couleur}">
+        <input type="radio" name="couleur" value="{couleur}" checked="{couleur == choisie}">
+        <span class="lecteur">{couleur | capitalize}</span>
+    </label>
+</fieldset>

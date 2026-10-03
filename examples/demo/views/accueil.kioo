@@ -2,45 +2,95 @@
 <k:block name="titre">Accueil</k:block>
 
 <section class="hero">
-    <h1>Un carnet de notes, pour tout essayer.</h1>
-    <p>Cette petite application utilise chaque pièce de Wazi. Ouvrez son code à côté : chaque fichier explique ce qu'il fait, et pourquoi.</p>
-    <p>
-        <a k:if="utilisateur == null" class="bouton" href="/connexion">Se connecter</a>
-        <a k:else class="bouton" href="/notes">Ouvrir mon carnet</a>
-    </p>
+    <div class="hero-texte">
+        <p class="surtitre">Démonstration de Wazi</p>
+        <h1>Un carnet de notes, <span class="accent">pour voir à travers.</span></h1>
+        <p class="chapo">Cette application utilise chaque pièce de Wazi. Ouvrez son code à côté : chaque fichier explique ce qu'il fait, et pourquoi.</p>
+        <p class="hero-actions">
+            <a k:if="utilisateur == null" class="bouton" href="/connexion">
+                Se connecter
+                <svg class="icone" aria-hidden="true"><use href="/icones.svg#fleche"></use></svg>
+            </a>
+            <a k:else class="bouton" href="/notes">
+                Ouvrir mon carnet
+                <svg class="icone" aria-hidden="true"><use href="/icones.svg#fleche"></use></svg>
+            </a>
+            <span class="aide">Comptes : <code>alice</code> ou <code>bob</code>, mot de passe <code>wazi</code></span>
+        </p>
+    </div>
+
+    <!-- La vitrine : un extrait du vrai code de cette application, derrière deux panneaux de verre.
+         Dans un template, une accolade ouvre un affichage : pour en écrire une vraie, on la fait
+         précéder d'une barre inversée. -->
+    <div class="vitrine" aria-hidden="true">
+        <div class="verre verre-1"></div>
+        <div class="verre verre-2"></div>
+        <pre class="code"><span class="c">// src/NoteController.php</span>
+<span class="a">#[Get('/notes/\{id:int}', [ConnexionRequise::class])]</span>
+<span class="m">public function</span> voir(<span class="m">int</span> $id): ResponseInterface
+\{
+    $note = $this->carnet->trouver($id, $this->auteur());
+
+    <span class="m">if</span> ($note === <span class="m">null</span>) \{
+        <span class="m">return</span> $this->pages->page(<span class="t">'introuvable'</span>, [], 404);
+    }
+
+    <span class="m">return</span> $this->pageNote($note);
+}</pre>
+    </div>
 </section>
 
-<h2>À essayer</h2>
+<section>
+    <h2>Le chemin d'une requête</h2>
+    <p class="chapo">Rien n'est caché : chaque étape est une classe que vous pouvez ouvrir.</p>
+    <ol class="chemin">
+        <li><span>public/index.php</span>le point d'entrée</li>
+        <li><span>Kernel</span>assemble les pièces</li>
+        <li><span>Middlewares</span>sécurité, jeton, session</li>
+        <li><span>Routeur</span>trouve la route</li>
+        <li><span>Contrôleur</span>votre code</li>
+        <li><span>Kioo</span>écrit la page</li>
+    </ol>
+</section>
 
-<div class="grille">
-    <article class="carte">
-        <h3>Se connecter</h3>
-        <p>Deux comptes existent : <code>alice</code> et <code>bob</code>, mot de passe <code>wazi</code>. Chacun ne voit que ses notes.</p>
-        <p class="ou">src/ConnexionController.php</p>
-    </article>
-    <article class="carte">
-        <h3>Écrire une note piégée</h3>
-        <p>Écrivez <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> dans une note. Kioo l'affiche comme du texte : rien ne s'exécute.</p>
-        <p class="ou">views/notes/liste.kioo</p>
-    </article>
-    <article class="carte">
-        <h3>Lire la note d'un autre</h3>
-        <p>Connecté en tant qu'Alice, ouvrez <a href="/notes/4">la note n° 4</a>, qui est à Bob. Elle est introuvable.</p>
-        <p class="ou">src/Carnet.php</p>
-    </article>
-    <article class="carte">
-        <h3>Une page qui n'existe pas</h3>
-        <p><a href="/nulle-part">Cette adresse</a> ne mène à aucune route : Wazi répond 404.</p>
-        <p class="ou">src/PageController.php</p>
-    </article>
-    <article class="carte">
-        <h3>Une panne</h3>
-        <p><a href="/panne">Cette page</a> lève une exception. Avec <code>APP_DEBUG=true</code>, vous voyez le message ; sans, une page neutre.</p>
-        <p class="ou">.env</p>
-    </article>
-    <article class="carte">
-        <h3>Un formulaire sans jeton</h3>
-        <p>Envoyez un formulaire depuis un autre outil que cette page : Wazi le refuse (403). La commande est dans le fichier README.</p>
-        <p class="ou">README.md</p>
-    </article>
-</div>
+<section>
+    <h2>À essayer</h2>
+    <div class="grille">
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#cle"></use></svg></span>
+            <h3>Se connecter</h3>
+            <p>Cochez « Se souvenir de moi » : le cookie de session dure alors trente jours. Sinon, il disparaît avec le navigateur.</p>
+            <p class="ou">src/ConnexionController.php</p>
+        </article>
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#vitre"></use></svg></span>
+            <h3>Écrire une note piégée</h3>
+            <p>Écrivez <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> dans une note. Kioo l'affiche comme du texte : rien ne s'exécute.</p>
+            <p class="ou">views/notes/liste.kioo</p>
+        </article>
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#personnes"></use></svg></span>
+            <h3>Lire la note d'un autre</h3>
+            <p>Connecté en tant qu'Alice, ouvrez <a href="/notes/4">la note n° 4</a>, qui est à Bob. Elle reste introuvable.</p>
+            <p class="ou">src/Carnet.php</p>
+        </article>
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#bouclier"></use></svg></span>
+            <h3>Un formulaire sans jeton</h3>
+            <p>Envoyez un formulaire depuis un autre outil que ces pages : Wazi le refuse (403). La commande est dans le README.</p>
+            <p class="ou">README.md</p>
+        </article>
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#boussole"></use></svg></span>
+            <h3>Une page qui n'existe pas</h3>
+            <p><a href="/nulle-part">Cette adresse</a> ne mène à aucune route : Wazi répond 404, sans que vous écriviez rien.</p>
+            <p class="ou">public/index.php</p>
+        </article>
+        <article class="carte">
+            <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#panne"></use></svg></span>
+            <h3>Une panne</h3>
+            <p><a href="/panne">Cette page</a> lève une exception. Avec <code>APP_DEBUG=true</code>, vous voyez le message ; sans, une page neutre.</p>
+            <p class="ou">src/PageController.php</p>
+        </article>
+    </div>
+</section>

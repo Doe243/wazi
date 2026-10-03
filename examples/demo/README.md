@@ -25,16 +25,19 @@ Pour voir le détail des erreurs dans le navigateur, copiez `.env.example` sous 
 examples/demo/
 ├── public/                  Le seul dossier visible depuis un navigateur
 │   ├── index.php            Le point d'entrée : réglages, assemblage, réponse
-│   ├── app.css              Les styles
-│   └── app.js               Le script de la page « Mes notes »
+│   ├── app.css              Les styles, thème clair et thème sombre
+│   ├── app.js               Le script du site : thème, compteur, confirmation, épingle
+│   ├── theme.js             Applique le thème choisi avant l'affichage de la page
+│   └── icones.svg           Les icônes, réunies dans un seul fichier
 ├── src/                     Le code de l'application
 │   ├── Carnet.php           Le service qui range les notes (il ne sait rien du web)
 │   ├── Comptes.php          Les comptes et la vérification des mots de passe
+│   ├── Filtres.php          Les filtres Kioo de l'application : « depuis », « initiale »
 │   ├── Pages.php            Fabrique les pages : ce que toutes les vues ont en commun
 │   ├── ConnexionRequise.php Le middleware qui garde les pages réservées
 │   ├── PageController.php       L'accueil, et une panne volontaire
 │   ├── ConnexionController.php  Se connecter, se déconnecter
-│   ├── NoteController.php       Lire, ajouter, modifier, supprimer
+│   ├── NoteController.php       Lire, chercher, ajouter, modifier, supprimer
 │   └── WebhookController.php    Une route appelée par un autre programme
 ├── views/                   Les templates Kioo
 │   ├── base.kioo            La mise en page commune
@@ -64,7 +67,12 @@ Quand vous envoyez le formulaire « Nouvelle note » :
 | Se connecter en cochant « Se souvenir de moi » | Le cookie de session reçoit une durée de 30 jours | `src/ConnexionController.php` |
 | Écrire `<script>alert(1)</script>` dans une note | Le texte s'affiche tel quel, rien ne s'exécute | `views/notes/liste.kioo` |
 | Connecté en tant qu'Alice, ouvrir `/notes/4` (une note de Bob) | « Note introuvable » | `src/Carnet.php` |
-| Cliquer sur « Importante » | La note change sans recharger la page | `public/app.js` |
+| Cliquer sur l'épingle d'une note | La note est épinglée sans recharger la page | `public/app.js` |
+| Chercher un mot, puis regarder l'adresse | La recherche est un formulaire GET : elle part dans l'adresse (`/notes?q=pain`) | `views/notes/liste.kioo` |
+| Choisir une couleur pour une note | Seules les couleurs d'une liste sont acceptées ; toute autre valeur est ignorée | `src/Carnet.php` |
+| Regarder « il y a 3 h » sous une note | Un filtre Kioo écrit par l'application | `src/Filtres.php` |
+| Cliquer sur la lune, en haut à droite | Le site passe en thème sombre, et s'en souvient | `public/theme.js` |
+| Couper JavaScript dans le navigateur | Tout fonctionne encore : le script n'apporte que du confort | `public/app.js` |
 | Ouvrir `/nulle-part` | 404 | — |
 | Ouvrir `/panne` | Le message de l'erreur avec `APP_DEBUG=true`, une page neutre sans | `src/PageController.php` |
 

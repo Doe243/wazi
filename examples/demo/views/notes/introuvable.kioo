@@ -1,8 +1,11 @@
 <k:layout name="base">
 <k:block name="titre">Note introuvable</k:block>
 
-<section class="carte etroite">
+<section class="carte etroite centre">
+    <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#page-vide"></use></svg></span>
     <h1>Note introuvable</h1>
+    <!-- La même réponse pour une note qui n'existe pas et pour la note de quelqu'un
+         d'autre : on ne révèle pas quels numéros sont pris. -->
     <p>Aucune de vos notes ne porte le numéro {id}.</p>
     <p><a class="bouton" href="/notes">Retour à mes notes</a></p>
 </section>

@@ -3,40 +3,70 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <title><k:block name="titre">Carnet</k:block> — Démonstration Wazi</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap">
     <link rel="stylesheet" href="/app.css">
+    <!-- Chargé tout de suite, avant l'affichage : il applique le thème choisi
+         (clair ou sombre) sans que la page ne clignote. -->
+    <script src="/theme.js"></script>
+    <!-- « defer » : chargé sans bloquer, exécuté une fois la page lue. -->
+    <script src="/app.js" defer></script>
     <k:block name="entete"></k:block>
 </head>
 <body>
+<a class="evitement" href="#contenu">Aller au contenu</a>
+
 <header class="bandeau">
-    <a class="marque" href="/">
-        <svg width="38" height="28" viewBox="0 0 76 56" fill="none" aria-hidden="true">
-            <path d="M6 8 L24 48 L40 14" stroke="#0D2B30" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M36 14 L52 48 L70 8" stroke="#12A3A0" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-        </svg>
-        <span>carnet</span>
-    </a>
-    <nav aria-label="Navigation principale">
-        <a href="/notes">Mes notes</a>
-        <a k:if="utilisateur == null" class="bouton discret" href="/connexion">Se connecter</a>
-        <!-- Se déconnecter change quelque chose : c'est un formulaire POST, pas un lien.
-             Kioo lui ajoute de lui-même le champ caché du jeton de protection. -->
-        <form k:else method="post" action="/deconnexion">
-            <span class="pastille">{utilisateur | capitalize}</span>
-            <button class="bouton discret">Se déconnecter</button>
-        </form>
-    </nav>
+    <div class="bandeau-interieur">
+        <a class="marque" href="/" aria-label="Carnet, accueil">
+            <svg width="38" height="28" viewBox="0 0 76 56" fill="none" aria-hidden="true">
+                <path class="marque-gauche" d="M6 8 L24 48 L40 14" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path class="marque-droite" d="M36 14 L52 48 L70 8" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+            </svg>
+            <span>carnet</span>
+        </a>
+
+        <nav aria-label="Navigation principale">
+            <a class="lien-nav" href="/notes">Mes notes</a>
+
+            <!-- Caché tant que le script n'est pas chargé : sans JavaScript, le
+                 thème suit simplement le réglage de l'appareil. -->
+            <button type="button" class="bouton-icone" id="theme" hidden aria-label="Changer de thème, clair ou sombre">
+                <svg class="icone si-clair" aria-hidden="true"><use href="/icones.svg#lune"></use></svg>
+                <svg class="icone si-sombre" aria-hidden="true"><use href="/icones.svg#soleil"></use></svg>
+            </button>
+
+            <a k:if="utilisateur == null" class="bouton petit" href="/connexion">Se connecter</a>
+            <!-- Se déconnecter change quelque chose : c'est un formulaire POST, pas un lien.
+                 Kioo lui ajoute de lui-même le champ caché du jeton de protection. -->
+            <form k:else method="post" action="/deconnexion" class="compte">
+                <span class="avatar" aria-hidden="true">{utilisateur | initiale}</span>
+                <span class="compte-nom">{utilisateur | capitalize}</span>
+                <button class="bouton discret petit">Se déconnecter</button>
+            </form>
+        </nav>
+    </div>
 </header>
 
-<main>
+<main id="contenu">
     <k:include file="partiels/messages" messages="{messages}">
     <k:block name="content"></k:block>
 </main>
 
 <k:include file="partiels/pied" annee="{annee}">
+
+<!-- La fenêtre de confirmation, ouverte par app.js avant une suppression. -->
+<dialog id="confirmation" class="fenetre">
+    <h2>Supprimer cette note ?</h2>
+    <p>Elle sera effacée pour de bon.</p>
+    <div class="fenetre-actions">
+        <button type="button" class="bouton discret" value="non">Annuler</button>
+        <button type="button" class="bouton danger" value="oui">Supprimer</button>
+    </div>
+</dialog>
 </body>
 </html>

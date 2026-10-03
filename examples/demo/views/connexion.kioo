@@ -2,19 +2,23 @@
 <k:block name="titre">Se connecter</k:block>
 
 <section class="carte etroite">
+    <span class="pictogramme"><svg class="icone" aria-hidden="true"><use href="/icones.svg#cle"></use></svg></span>
     <h1>Se connecter</h1>
 
     <p k:if="renvoye" class="message info" role="status">Connectez-vous pour voir cette page.</p>
 
     <!-- « erreur » n'existe que si la connexion a échoué. Kioo refuse une
          variable inconnue : « ?? null » dit que son absence est prévue. -->
-    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">{erreur}</p>
+    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#panne"></use></svg>
+        {erreur}
+    </p>
 
     <!-- Vous n'écrivez pas le jeton de protection : Kioo l'ajoute à tout
          formulaire POST envoyé à ce site. Regardez le code source de la page. -->
     <form method="post" action="/connexion" class="formulaire">
         <label for="nom">Nom</label>
-        <input id="nom" name="nom" value="{nom}" autocomplete="username" required autofocus>
+        <input id="nom" name="nom" value="{nom}" autocomplete="username" autocapitalize="none" required autofocus>
 
         <label for="mot_de_passe">Mot de passe</label>
         <input id="mot_de_passe" name="mot_de_passe" type="password" autocomplete="current-password" required>
@@ -24,8 +28,8 @@
             Se souvenir de moi pendant 30 jours
         </label>
 
-        <button class="bouton">Se connecter</button>
+        <button class="bouton large">Se connecter</button>
     </form>
 
-    <p class="aide">Comptes de démonstration : <code>alice</code> ou <code>bob</code>, mot de passe <code>wazi</code>.</p>
+    <p class="aide centre">Comptes de démonstration : <code>alice</code> ou <code>bob</code>, mot de passe <code>wazi</code>.</p>
 </section>
