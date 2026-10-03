@@ -42,6 +42,16 @@ final class ResponseEmitterTest extends TestCase
         self::assertSame(['Content-Type: text/html', 'HTTP/1.1 200 OK'], FakeSapi::headerLines());
     }
 
+    /**
+     * Sécurité : la version de PHP n'a pas à être annoncée aux visiteurs.
+     */
+    public function testThePhpVersionHeaderIsRemoved(): void
+    {
+        new ResponseEmitter()->emit(new Response());
+
+        self::assertSame(['X-Powered-By'], FakeSapi::$removed);
+    }
+
     public function testTheStatusLineCarriesTheCodeAndIsSentLast(): void
     {
         new ResponseEmitter()->emit(new Response(302, ['Location' => '/connexion']));

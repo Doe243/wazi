@@ -16,6 +16,11 @@ function header(string $header, bool $replace = true, int $response_code = 0): v
     FakeSapi::$headers[] = [$header, $replace, $response_code];
 }
 
+function header_remove(?string $name = null): void
+{
+    FakeSapi::$removed[] = $name;
+}
+
 /**
  * @param-out string $filename
  * @param-out int    $line
