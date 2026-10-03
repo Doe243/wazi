@@ -127,7 +127,7 @@ final class SessionTest extends TestCase
         $this->expectException(SessionException::class);
         $this->expectExceptionMessage('réservées');
 
-        $session->set('_csrf', 'jeton choisi par le développeur');
+        $session->set('_interne', 'valeur choisie par le développeur');
     }
 
     // --- Sécurité : identifiant --------------------------------------------
@@ -187,7 +187,7 @@ final class SessionTest extends TestCase
     public function testClearForgetsEverythingAndChangesTheIdentifier(): void
     {
         $session = new Session();
-        $session->start(self::KNOWN_ID, ['user_id' => 42, '_csrf' => 'ancien']);
+        $session->start(self::KNOWN_ID, ['user_id' => 42, 'panier' => [3, 7]]);
 
         $session->clear();
 
@@ -218,34 +218,6 @@ final class SessionTest extends TestCase
         self::assertFalse(Session::isValidId($id));
     }
 
-    // --- Jeton de protection des formulaires --------------------------------
-
-    public function testTheCsrfTokenIsCreatedOnceAndThenKept(): void
-    {
-        $session = self::started();
-
-        $token = $session->csrfToken();
-
-        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', $token);
-        self::assertSame($token, $session->csrfToken());
-        self::assertTrue($session->hasChanged());
-        self::assertSame($token, $session->all()[Session::CSRF_FIELD]);
-    }
-
-    public function testTheCsrfTokenIsReadBackFromTheStoredSession(): void
-    {
-        $session = new Session();
-        $session->start(self::KNOWN_ID, ['_csrf' => 'jeton-enregistré']);
-
-        self::assertSame('jeton-enregistré', $session->csrfToken());
-        self::assertFalse($session->hasChanged());
-    }
-
-    public function testEachSessionHasItsOwnCsrfToken(): void
-    {
-        self::assertNotSame(self::started()->csrfToken(), self::started()->csrfToken());
-    }
-
     // --- Session non démarrée ----------------------------------------------
 
     /**
@@ -260,7 +232,6 @@ final class SessionTest extends TestCase
         yield 'all' => [static fn(Session $session): array => $session->all()];
         yield 'regenerate' => [static fn(Session $session) => $session->regenerate()];
         yield 'clear' => [static fn(Session $session) => $session->clear()];
-        yield 'csrfToken' => [static fn(Session $session): string => $session->csrfToken()];
         yield 'id' => [static fn(Session $session): string => $session->id()];
     }
 

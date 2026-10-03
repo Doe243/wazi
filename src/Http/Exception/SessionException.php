@@ -34,7 +34,7 @@ final class SessionException extends \LogicException
     {
         return new self(sprintf(
             'La clé « %s » ne peut pas être utilisée : les clés de session qui commencent par « _ » sont réservées'
-            . ' à Wazi (il y range le jeton de protection des formulaires). Choisissez un autre nom.',
+            . ' à Wazi. Choisissez un autre nom.',
             ValuePreview::of($key),
         ));
     }

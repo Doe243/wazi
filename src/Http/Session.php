@@ -33,9 +33,6 @@ use Wazi\Http\Exception\SessionException;
  */
 final class Session
 {
-    /** Le nom du champ de formulaire (et de la clé de session) qui porte le jeton de protection des formulaires. */
-    public const string CSRF_FIELD = '_csrf';
-
     /** 64 chiffres hexadécimaux : 32 octets au hasard. */
     private const string ID = '/^[a-f0-9]{64}$/D';
 
@@ -126,28 +123,6 @@ final class Session
 
         $this->data = [];
         $this->regenerate();
-    }
-
-    /**
-     * Le jeton qui protège les formulaires contre la falsification de requête (CSRF).
-     *
-     * Il est créé à la première demande et reste le même tant que la session
-     * dure. Kioo l'ajoute de lui-même à vos formulaires ; vous n'en avez besoin
-     * que pour une requête envoyée par JavaScript (en-tête X-CSRF-Token).
-     */
-    public function csrfToken(): string
-    {
-        $this->assertStarted();
-
-        $token = $this->data[self::CSRF_FIELD] ?? null;
-
-        if (!is_string($token)) {
-            $token = bin2hex(random_bytes(32));
-            $this->data[self::CSRF_FIELD] = $token;
-            $this->changed = true;
-        }
-
-        return $token;
     }
 
     // ------------------------------------------------------------------

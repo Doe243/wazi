@@ -10,26 +10,26 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Contracts\HttpError;
-use Wazi\Http\Exception\SessionException;
+use Wazi\Http\CsrfToken;
 use Wazi\Http\Pipeline;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
-use Wazi\Http\Session;
 use Wazi\Middleware\CsrfProtection;
 use Wazi\Middleware\Exception\CsrfException;
 use Wazi\Middleware\WithoutCsrf;
 
 final class CsrfProtectionTest extends TestCase
 {
-    private Session $session;
+    private CsrfToken $token;
 
     /** Vrai dès que la requête a atteint le code protégé. */
     private bool $reached = false;
 
     protected function setUp(): void
     {
-        $this->session = new Session();
-        $this->session->start(null);
+        // Le visiteur a déjà reçu son jeton, dans un cookie.
+        $this->token = new CsrfToken();
+        $this->token->start(bin2hex(random_bytes(32)));
         $this->reached = false;
     }
 
@@ -51,12 +51,12 @@ final class CsrfProtectionTest extends TestCase
         $this->handle(new ServerRequest($method, '/notes'));
 
         self::assertTrue($this->reached);
-        self::assertFalse($this->session->hasChanged(), 'Une simple lecture ne crée pas de session.');
+        self::assertNull($this->token->toSend(), 'Une simple lecture ne crée pas de jeton.');
     }
 
     public function testAFormWithTheTokenIsAccepted(): void
     {
-        $token = $this->session->csrfToken();
+        $token = $this->token->value();
 
         $this->handle(new ServerRequest('POST', '/notes')->withParsedBody(['texte' => 'Pain', '_csrf' => $token]));
 
@@ -77,7 +77,7 @@ final class CsrfProtectionTest extends TestCase
     #[DataProvider('unsafeMethods')]
     public function testAJavascriptRequestSendsTheTokenInAHeader(string $method): void
     {
-        $token = $this->session->csrfToken();
+        $token = $this->token->value();
 
         $this->handle(new ServerRequest($method, '/notes/1', ['X-CSRF-Token' => $token]));
 
@@ -117,8 +117,6 @@ final class CsrfProtectionTest extends TestCase
     #[DataProvider('wrongTokens')]
     public function testAWrongTokenIsRefused(mixed $token): void
     {
-        $this->session->csrfToken();
-
         $this->expectException(CsrfException::class);
 
         $this->handle(new ServerRequest('POST', '/notes')->withParsedBody(['_csrf' => $token]));
@@ -126,12 +124,12 @@ final class CsrfProtectionTest extends TestCase
 
     public function testTheTokenOfAnotherVisitorIsRefused(): void
     {
-        $other = new Session();
-        $other->start(null);
+        $other = new CsrfToken();
+        $other->start(bin2hex(random_bytes(32)));
 
         $this->expectException(CsrfException::class);
 
-        $this->handle(new ServerRequest('POST', '/notes')->withParsedBody(['_csrf' => $other->csrfToken()]));
+        $this->handle(new ServerRequest('POST', '/notes')->withParsedBody(['_csrf' => $other->value()]));
     }
 
     /**
@@ -157,7 +155,7 @@ final class CsrfProtectionTest extends TestCase
      */
     public function testTheTokenIsNotReadFromTheQueryString(): void
     {
-        $token = $this->session->csrfToken();
+        $token = $this->token->value();
 
         $this->expectException(CsrfException::class);
 
@@ -166,7 +164,7 @@ final class CsrfProtectionTest extends TestCase
 
     public function testTheErrorMessageDoesNotRevealTheExpectedToken(): void
     {
-        $token = $this->session->csrfToken();
+        $token = $this->token->value();
 
         try {
             $this->handle(new ServerRequest("PO\nST", '/notes')->withParsedBody(['_csrf' => 'faux']));
@@ -177,18 +175,32 @@ final class CsrfProtectionTest extends TestCase
         }
     }
 
-    public function testWithoutASessionTheProtectionExplainsWhatIsMissing(): void
+    /**
+     * Sécurité : sans cookie, rien ne prouve que le formulaire vient d'une
+     * page du site. Un jeton créé pendant cette même requête ne compte pas.
+     */
+    public function testWithoutACookieEvenTheTokenOfThisRequestIsRefused(): void
     {
-        $this->expectException(SessionException::class);
+        $this->token->start(null);
+        $created = $this->token->value();
 
-        new CsrfProtection(new Session())->process(new ServerRequest('POST', '/notes'), $this->finalHandler());
+        $this->expectException(CsrfException::class);
+
+        $this->handle(new ServerRequest('POST', '/notes')->withParsedBody(['_csrf' => $created]));
+    }
+
+    public function testBeforeTheCookieWasReadEverythingIsRefused(): void
+    {
+        $this->expectException(CsrfException::class);
+
+        new CsrfProtection(new CsrfToken())->process(new ServerRequest('POST', '/notes'), $this->finalHandler());
     }
 
     // --- Sortie explicite et locale ----------------------------------------
 
     public function testARouteCanBeExemptedExplicitly(): void
     {
-        $pipeline = new Pipeline([new WithoutCsrf(), new CsrfProtection($this->session)], $this->finalHandler());
+        $pipeline = new Pipeline([new WithoutCsrf(), new CsrfProtection($this->token)], $this->finalHandler());
 
         $pipeline->handle(new ServerRequest('POST', '/webhooks/paiement'));
 
@@ -221,7 +233,7 @@ final class CsrfProtectionTest extends TestCase
 
     private function handle(ServerRequestInterface $request): ResponseInterface
     {
-        return new CsrfProtection($this->session)->process($request, $this->finalHandler());
+        return new CsrfProtection($this->token)->process($request, $this->finalHandler());
     }
 
     private function finalHandler(): RequestHandlerInterface

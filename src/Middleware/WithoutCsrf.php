@@ -15,7 +15,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  *     #[Post('/webhooks/paiement', [WithoutCsrf::class])]
  *
  * À réserver aux routes appelées par un autre service (un prestataire de
- * paiement, par exemple), qui n'a ni session ni jeton. Une telle route doit
+ * paiement, par exemple), qui n'a ni cookie ni jeton. Une telle route doit
  * vérifier autrement d'où vient la requête : une signature, une clé secrète.
  *
  * ⚠ Ne l'utilisez jamais pour une route que vos visiteurs connectés peuvent

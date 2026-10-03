@@ -6,7 +6,7 @@ namespace Wazi\Tests\View;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Wazi\Http\Session;
+use Wazi\Http\CsrfToken;
 use Wazi\View\Kioo;
 
 /**
@@ -14,12 +14,12 @@ use Wazi\View\Kioo;
  */
 final class KiooFormsTest extends TestCase
 {
-    private Session $session;
+    private CsrfToken $token;
 
     protected function setUp(): void
     {
-        $this->session = new Session();
-        $this->session->start(null);
+        $this->token = new CsrfToken();
+        $this->token->start(null);
     }
 
     public function testAPostFormReceivesTheTokenAsAHiddenField(): void
@@ -27,7 +27,7 @@ final class KiooFormsTest extends TestCase
         $html = $this->render('<form method="post" action="/notes"><input name="texte"></form>');
 
         self::assertSame(
-            '<form method="post" action="/notes"><input type="hidden" name="_csrf" value="' . $this->session->csrfToken() . '"><input name="texte"></form>',
+            '<form method="post" action="/notes"><input type="hidden" name="_csrf" value="' . $this->token->value() . '"><input name="texte"></form>',
             $html,
         );
     }
@@ -55,7 +55,7 @@ final class KiooFormsTest extends TestCase
         $html = $this->render($openingTag . '</form>', ['id' => 3, 'methode' => 'post']);
 
         self::assertSame(1, substr_count($html, 'name="_csrf"'));
-        self::assertStringContainsString($this->session->csrfToken(), $html);
+        self::assertStringContainsString($this->token->value(), $html);
     }
 
     /**
@@ -84,7 +84,7 @@ final class KiooFormsTest extends TestCase
     #[DataProvider('formsThatMustNotReceiveTheToken')]
     public function testTheTokenNeverLeavesTheSite(string $openingTag): void
     {
-        $token = $this->session->csrfToken();
+        $token = $this->token->value();
 
         $html = $this->render($openingTag . '</form>', ['ailleurs' => 'https://pirate.com/vol', 'sans_protocole' => '//pirate.com/vol']);
 
@@ -96,7 +96,7 @@ final class KiooFormsTest extends TestCase
     {
         $html = $this->render('<form method="post" action="/a"></form><form method="post" action="/b"></form>');
 
-        self::assertSame(2, substr_count($html, 'value="' . $this->session->csrfToken() . '"'));
+        self::assertSame(2, substr_count($html, 'value="' . $this->token->value() . '"'));
     }
 
     public function testFormsInsideLoopsAndConditionsReceiveTheToken(): void
@@ -115,28 +115,38 @@ final class KiooFormsTest extends TestCase
 
     /**
      * Une page sans formulaire ne crée pas de jeton : le visiteur qui ne fait
-     * que lire ne reçoit donc pas de session.
+     * que lire ne reçoit donc aucun cookie.
      */
-    public function testAPageWithoutPostFormDoesNotTouchTheSession(): void
+    public function testAPageWithoutPostFormCreatesNoToken(): void
     {
         $this->render('<h1>Titre</h1><form action="/recherche"><input name="q"></form>');
 
-        self::assertFalse($this->session->hasChanged());
-        self::assertSame([], $this->session->all());
+        self::assertNull($this->token->toSend());
     }
 
-    public function testWithoutSessionNothingIsAdded(): void
+    public function testAVisitorWhoAlreadyHasATokenKeepsIt(): void
+    {
+        $known = str_repeat('ab', 32);
+        $this->token->start($known);
+
+        $html = $this->render('<form method="post" action="/notes"></form>');
+
+        self::assertStringContainsString('value="' . $known . '"', $html);
+        self::assertNull($this->token->toSend(), 'Aucun nouveau cookie à envoyer.');
+    }
+
+    public function testWithoutTokenNothingIsAdded(): void
     {
         $template = '<form method="post" action="/notes"></form>';
 
         self::assertSame($template, new Kioo()->renderString($template));
     }
 
-    public function testWithASessionThatIsNotStartedNothingIsAdded(): void
+    public function testWithATokenThatIsNotStartedNothingIsAdded(): void
     {
         $template = '<form method="post" action="/notes"></form>';
 
-        self::assertSame($template, new Kioo(session: new Session())->renderString($template));
+        self::assertSame($template, new Kioo(csrf: new CsrfToken())->renderString($template));
     }
 
     public function testAFormComingFromAValueNeverReceivesTheToken(): void
@@ -151,6 +161,6 @@ final class KiooFormsTest extends TestCase
      */
     private function render(string $template, array $variables = []): string
     {
-        return new Kioo(session: $this->session)->renderString($template, $variables);
+        return new Kioo(csrf: $this->token)->renderString($template, $variables);
     }
 }

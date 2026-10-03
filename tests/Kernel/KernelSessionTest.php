@@ -57,71 +57,135 @@ final class KernelSessionTest extends TestCase
      */
     public function testAVisitorLogsInIsRememberedAndLogsOut(): void
     {
-        // 1. Le formulaire : il contient le jeton, et le navigateur reçoit un cookie.
+        // 1. Le formulaire : il contient le jeton, et le navigateur le reçoit
+        //    aussi dans un cookie. Aucune session n'est créée pour autant.
         $form = $this->app()->handle(new ServerRequest('GET', '/connexion'));
-        $cookie = self::cookie($form);
-        $token = self::token($form);
+        $csrf = self::csrfCookie($form);
 
         self::assertSame(200, $form->getStatusCode());
-        self::assertNotSame('', $cookie);
-        self::assertNotSame('', $token);
+        self::assertNotSame('', $csrf);
+        self::assertSame($csrf, self::token($form), 'Le champ du formulaire répète le cookie.');
+        self::assertSame('', self::sessionCookie($form));
+        self::assertSame([], $this->sessionFiles());
 
-        // 2. L'envoi du formulaire, avec le cookie et le jeton.
+        // 2. L'envoi du formulaire, avec le cookie et le jeton : la session naît ici.
         $login = $this->app()->handle(
             new ServerRequest('POST', '/connexion')
-                ->withCookieParams(['session' => $cookie])
-                ->withParsedBody(['nom' => 'Alice', '_csrf' => $token]),
+                ->withCookieParams(['csrf' => $csrf])
+                ->withParsedBody(['nom' => 'Alice', '_csrf' => $csrf]),
         );
-        $cookieAfterLogin = self::cookie($login);
+        $session = self::sessionCookie($login);
 
         self::assertSame(303, $login->getStatusCode());
-        self::assertNotSame('', $cookieAfterLogin);
-        self::assertNotSame($cookie, $cookieAfterLogin, 'L\'identifiant change à la connexion.');
+        self::assertNotSame('', $session);
+        self::assertCount(1, $this->sessionFiles());
 
         // 3. La page suivante reconnaît le visiteur.
-        $profile = $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $cookieAfterLogin]));
+        $profile = $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $session, 'csrf' => $csrf]));
 
         self::assertSame('Bonjour Alice', (string) $profile->getBody());
 
-        // L'identifiant d'avant la connexion ne vaut plus rien.
-        $withOldCookie = $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $cookie]));
+        // 4. Le formulaire suivant reprend le même jeton, sans nouveau cookie.
+        $again = $this->app()->handle(new ServerRequest('GET', '/connexion')->withCookieParams(['session' => $session, 'csrf' => $csrf]));
 
-        self::assertSame('Bonjour visiteur', (string) $withOldCookie->getBody());
+        self::assertSame($csrf, self::token($again));
+        self::assertFalse($again->hasHeader('Set-Cookie'));
 
-        // 4. La déconnexion efface la session et le cookie.
-        $tokenAfterLogin = self::token($this->app()->handle(new ServerRequest('GET', '/connexion')->withCookieParams(['session' => $cookieAfterLogin])));
+        // 5. La déconnexion efface la session et son cookie.
         $logout = $this->app()->handle(
             new ServerRequest('POST', '/deconnexion')
-                ->withCookieParams(['session' => $cookieAfterLogin])
-                ->withParsedBody(['_csrf' => $tokenAfterLogin]),
+                ->withCookieParams(['session' => $session, 'csrf' => $csrf])
+                ->withParsedBody(['_csrf' => $csrf]),
         );
 
         self::assertStringContainsString('Max-Age=0', $logout->getHeaderLine('Set-Cookie'));
         self::assertSame(
             'Bonjour visiteur',
-            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $cookieAfterLogin]))->getBody(),
+            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $session]))->getBody(),
+        );
+    }
+
+    /**
+     * Sécurité (fixation de session) : l'identifiant que le visiteur avait
+     * avant de se connecter ne vaut plus rien après.
+     */
+    public function testTheSessionIdentifierChangesAtLogin(): void
+    {
+        $csrf = self::csrfCookie($this->app()->handle(new ServerRequest('GET', '/connexion')));
+        $before = self::sessionCookie($this->app()->handle(new ServerRequest('GET', '/panier')));
+
+        self::assertNotSame('', $before);
+
+        $login = $this->app()->handle(
+            new ServerRequest('POST', '/connexion')
+                ->withCookieParams(['session' => $before, 'csrf' => $csrf])
+                ->withParsedBody(['nom' => 'Alice', '_csrf' => $csrf]),
+        );
+        $after = self::sessionCookie($login);
+
+        self::assertNotSame('', $after);
+        self::assertNotSame($before, $after, 'L\'identifiant change à la connexion.');
+        self::assertSame(
+            'Bonjour visiteur',
+            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $before]))->getBody(),
+        );
+        self::assertSame(
+            'Bonjour Alice',
+            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $after]))->getBody(),
         );
     }
 
     /**
      * L'attaque CSRF : une page d'un autre site fait envoyer un formulaire au
-     * navigateur d'un visiteur connecté. Le cookie part, pas le jeton.
+     * navigateur d'un visiteur. Les cookies partent, pas le jeton : la page
+     * piégée ne peut pas le lire.
      */
     public function testAFormSentFromAnotherSiteIsRefused(): void
     {
-        $cookie = self::cookie($this->app()->handle(new ServerRequest('GET', '/connexion')));
+        $csrf = self::csrfCookie($this->app()->handle(new ServerRequest('GET', '/connexion')));
+        $session = self::sessionCookie($this->app()->handle(new ServerRequest('GET', '/panier')));
 
         $response = $this->app()->handle(
-            new ServerRequest('POST', '/connexion')->withCookieParams(['session' => $cookie])->withParsedBody(['nom' => 'Pirate']),
+            new ServerRequest('POST', '/connexion')
+                ->withCookieParams(['session' => $session, 'csrf' => $csrf])
+                ->withParsedBody(['nom' => 'Pirate']),
         );
 
         self::assertSame(403, $response->getStatusCode());
         self::assertStringContainsString('Accès refusé', (string) $response->getBody());
         self::assertSame(
             'Bonjour visiteur',
-            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $cookie]))->getBody(),
+            (string) $this->app()->handle(new ServerRequest('GET', '/profil')->withCookieParams(['session' => $session]))->getBody(),
             'La connexion n\'a pas eu lieu.',
         );
+    }
+
+    /**
+     * L'attaquant devine le nom du champ et y met un jeton de son choix : sans
+     * le cookie correspondant, c'est refusé.
+     */
+    public function testAnInventedTokenIsRefused(): void
+    {
+        $csrf = self::csrfCookie($this->app()->handle(new ServerRequest('GET', '/connexion')));
+
+        $response = $this->app()->handle(
+            new ServerRequest('POST', '/connexion')
+                ->withCookieParams(['csrf' => $csrf])
+                ->withParsedBody(['nom' => 'Pirate', '_csrf' => str_repeat('a', 64)]),
+        );
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testAJavascriptRequestSendsTheTokenInAHeader(): void
+    {
+        $csrf = self::csrfCookie($this->app()->handle(new ServerRequest('GET', '/connexion')));
+
+        $response = $this->app()->handle(
+            new ServerRequest('POST', '/deconnexion', ['X-CSRF-Token' => $csrf])->withCookieParams(['csrf' => $csrf]),
+        );
+
+        self::assertSame(303, $response->getStatusCode());
     }
 
     public function testTheRefusalExplainsItselfInDevelopment(): void
@@ -139,27 +203,62 @@ final class KernelSessionTest extends TestCase
         self::assertSame('reçu', (string) $response->getBody());
     }
 
-    public function testAVisitorWhoOnlyReadsGetsNoSessionCookie(): void
+    public function testAVisitorWhoOnlyReadsGetsNoCookieAtAll(): void
     {
         $response = $this->app()->handle(new ServerRequest('GET', '/profil'));
 
         self::assertFalse($response->hasHeader('Set-Cookie'));
-        self::assertSame([], glob($this->directory . '/var/sessions/*') ?: []);
+        self::assertSame([], $this->sessionFiles());
     }
 
-    public function testWithoutSessionsThereIsNoCookieAndNoCsrfCheck(): void
+    /**
+     * ADR-023 : un formulaire affiché à un visiteur anonyme ne crée plus de
+     * fichier de session. Un robot qui parcourt le site ne remplit pas le disque.
+     */
+    public function testShowingAFormCreatesNoSessionFile(): void
     {
-        $app = new Kernel(errorHandler: new ErrorHandler(false, new MemoryErrorLog()));
-        $app->router->post('/notes', static fn(): ResponseInterface => new Response(200, [], 'créée'));
+        for ($visit = 0; $visit < 5; $visit++) {
+            $this->app()->handle(new ServerRequest('GET', '/connexion'));
+        }
 
-        $response = $app->handle(new ServerRequest('POST', '/notes'));
-
-        self::assertSame('créée', (string) $response->getBody());
-        self::assertFalse($response->hasHeader('Set-Cookie'));
-        self::assertFalse($app->container->has('session.inconnue'));
+        self::assertSame([], $this->sessionFiles());
     }
 
-    public function testSecurityHeadersStillWrapTheSession(): void
+    /**
+     * Sécurité (ADR-023) : la protection des formulaires ne dépend pas des
+     * sessions. Une application sans sessions est protégée elle aussi.
+     */
+    public function testWithoutSessionsFormsAreStillProtected(): void
+    {
+        $refused = $this->appWithoutSessions()->handle(new ServerRequest('POST', '/notes'));
+
+        self::assertSame(403, $refused->getStatusCode());
+
+        $form = $this->appWithoutSessions()->handle(new ServerRequest('GET', '/connexion'));
+        $csrf = self::csrfCookie($form);
+
+        self::assertNotSame('', $csrf);
+        self::assertSame($csrf, self::token($form));
+
+        $accepted = $this->appWithoutSessions()->handle(
+            new ServerRequest('POST', '/notes')->withCookieParams(['csrf' => $csrf])->withParsedBody(['_csrf' => $csrf]),
+        );
+
+        self::assertSame('créée', (string) $accepted->getBody());
+        self::assertFalse($accepted->hasHeader('Set-Cookie'));
+    }
+
+    public function testOverHttpsTheCookieIsLockedToTheSite(): void
+    {
+        $form = $this->app()->handle(new ServerRequest('GET', 'https://exemple.com/connexion'));
+
+        self::assertMatchesRegularExpression(
+            '/^__Host-csrf=[a-f0-9]{64}; Path=\/; HttpOnly; SameSite=Lax; Secure$/D',
+            $form->getHeaderLine('Set-Cookie'),
+        );
+    }
+
+    public function testSecurityHeadersStillWrapTheCookies(): void
     {
         $response = $this->app()->handle(new ServerRequest('GET', '/connexion'));
 
@@ -207,14 +306,55 @@ final class KernelSessionTest extends TestCase
             return new Response(303, ['Location' => '/']);
         });
 
+        // Une page qui note quelque chose pour un visiteur pas encore connecté.
+        $app->router->get('/panier', static function () use ($app): ResponseInterface {
+            $app->container->get(Session::class)->set('panier', [3]);
+
+            return new Response(200, [], 'Panier');
+        });
+
         $app->router->post('/webhook', static fn(): ResponseInterface => new Response(200, [], 'reçu'), [WithoutCsrf::class]);
 
         return $app;
     }
 
-    private static function cookie(ResponseInterface $response): string
+    private function appWithoutSessions(): Kernel
     {
-        return preg_match('/session=([a-f0-9]{64});/', $response->getHeaderLine('Set-Cookie'), $match) === 1 ? $match[1] : '';
+        $app = new Kernel(errorHandler: new ErrorHandler(false, new MemoryErrorLog()), views: $this->directory . '/views');
+
+        $app->router->get('/connexion', static fn(): ResponseInterface => $app->container->get(Kioo::class)->page('connexion'));
+        $app->router->post('/notes', static fn(): ResponseInterface => new Response(200, [], 'créée'));
+
+        return $app;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function sessionFiles(): array
+    {
+        return glob($this->directory . '/var/sessions/*.json') ?: [];
+    }
+
+    private static function sessionCookie(ResponseInterface $response): string
+    {
+        return self::cookieNamed('session', $response);
+    }
+
+    private static function csrfCookie(ResponseInterface $response): string
+    {
+        return self::cookieNamed('csrf', $response);
+    }
+
+    private static function cookieNamed(string $name, ResponseInterface $response): string
+    {
+        foreach ($response->getHeader('Set-Cookie') as $cookie) {
+            if (preg_match('/^' . $name . '=([a-f0-9]{64});/', $cookie, $match) === 1) {
+                return $match[1];
+            }
+        }
+
+        return '';
     }
 
     private static function token(ResponseInterface $response): string
