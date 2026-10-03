@@ -111,6 +111,7 @@ final class EnvFileTest extends TestCase
         yield 'texte après le guillemet fermant' => ['APP_NAME="Carnet" suite', 'du texte suit'];
         yield 'guillemet double au milieu' => ['APP_NAME="Car"net"', 'du texte suit'];
         yield 'barre inversée qui échappe le guillemet final' => ['APP_NAME="Carnet\\"', 'n\'est pas refermé'];
+        yield 'nom réservé aux en-têtes de la requête' => ['HTTP_PROXY=proxy.exemple.com', '« HTTP_ »'];
     }
 
     #[DataProvider('invalidLines')]

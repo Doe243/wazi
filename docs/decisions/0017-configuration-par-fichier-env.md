@@ -1,6 +1,6 @@
 # ADR-017 : la configuration se lit dans un fichier .env, et y reste
 
-**Statut :** acceptée
+**Statut :** acceptée — point 5 modifié par l'ADR-018 : les variables d'environnement du serveur sont lues, en priorité sur le fichier
 
 ## Contexte
 Une application a des réglages qui changent d'une machine à l'autre (adresse de la base, nom du site) et des secrets (mots de passe, clés). La question était ouverte : des tableaux PHP, ou un fichier `.env`. Le choix du `.env` a été fait le 3 octobre 2026 : c'est ce que le débutant retrouvera dans Symfony et Laravel. Il reste à décider comment le lire sans créer de fuite.

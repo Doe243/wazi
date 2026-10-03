@@ -21,12 +21,13 @@ final class ConfigException extends \RuntimeException
     public static function missingKey(string $key, string $file, bool $fileExists): self
     {
         return new self(sprintf(
-            'La configuration ne contient pas « %s ». %s Ajoutez-y une ligne « %s=... », ou donnez une valeur'
-            . ' par défaut dans le code : $config->string(\'%s\', \'valeur par défaut\').',
+            'La configuration ne contient pas « %s » : aucune variable d\'environnement ne porte ce nom, et %s'
+            . ' Ajoutez une ligne « %s=... » au fichier, définissez la variable d\'environnement chez votre'
+            . ' hébergeur, ou donnez une valeur par défaut dans le code : $config->string(\'%s\', \'valeur par défaut\').',
             $key,
             $fileExists
-                ? sprintf('Elle est lue dans le fichier %s.', $file)
-                : sprintf('Le fichier %s n\'existe pas : créez-le (souvent en copiant .env.example).', $file),
+                ? sprintf('le fichier %s ne la définit pas.', $file)
+                : sprintf('le fichier %s n\'existe pas (on le crée souvent en copiant .env.example).', $file),
             $key,
             $key,
         ));
@@ -38,6 +39,16 @@ final class ConfigException extends \RuntimeException
             'Ce nom de clé de configuration est invalide. Un nom s\'écrit en majuscules, avec des chiffres'
             . ' et des « _ », et commence par une lettre : APP_NAME, DATABASE_URL, MAIL_PORT.',
         );
+    }
+
+    public static function reservedKeyName(string $key): self
+    {
+        return new self(sprintf(
+            'La clé de configuration « %s » commence par « HTTP_ », un préfixe réservé. Sur certains serveurs,'
+            . ' chaque en-tête envoyé par un visiteur devient une variable de ce nom : il pourrait donc choisir'
+            . ' la valeur de ce réglage. Renommez la clé, par exemple avec le préfixe « APP_ ».',
+            $key,
+        ));
     }
 
     public static function notAnInteger(string $key): self
