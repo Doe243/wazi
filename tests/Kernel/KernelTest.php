@@ -7,12 +7,15 @@ namespace Wazi\Tests\Kernel;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Errors\ErrorHandler;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Kernel\Kernel;
+use Wazi\Middleware\Exception\InvalidMiddlewareException;
+use Wazi\Middleware\SecurityHeaders;
 use Wazi\Routing\Router;
 use Wazi\Tests\Errors\Fixtures\MemoryErrorLog;
 use Wazi\Tests\Http\Fixtures\FakeSapi;
@@ -124,6 +127,101 @@ final class KernelTest extends TestCase
         self::assertNotSame(new Kernel()->router, new Kernel()->router);
     }
 
+    // --- Middlewares -------------------------------------------------------
+
+    public function testOrdinaryResponsesCarrySecurityHeadersByDefault(): void
+    {
+        $app = $this->kernel();
+        $app->router->get('/', static fn(): ResponseInterface => new Response(200, [], 'page'));
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
+        self::assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+        self::assertSame(SecurityHeaders::DEFAULT_CONTENT_SECURITY_POLICY, $response->getHeaderLine('Content-Security-Policy'));
+    }
+
+    /**
+     * Sécurité : déclarer ses propres middlewares ne doit pas faire
+     * disparaître les en-têtes de sécurité.
+     */
+    public function testAddingMiddlewaresDoesNotRemoveTheSecurityHeaders(): void
+    {
+        $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), middlewares: [self::tag('A'), self::tag('B')]);
+        $app->router->get('/', static fn(): ResponseInterface => new Response(200, [], 'page'));
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
+        self::assertSame('A, B', $response->getHeaderLine('X-Ordre'), 'A est le plus à l\'extérieur : il écrit en dernier, donc en premier dans la liste.');
+    }
+
+    public function testTheSecurityHeadersCanBeConfigured(): void
+    {
+        $app = new Kernel(securityHeaders: new SecurityHeaders("default-src 'none'"));
+        $app->router->get('/', static fn(): ResponseInterface => new Response());
+
+        self::assertSame("default-src 'none'", $app->handle(new ServerRequest('GET', '/'))->getHeaderLine('Content-Security-Policy'));
+    }
+
+    /**
+     * Retirer la protection demande un geste explicite et nommé.
+     */
+    public function testRemovingTheSecurityHeadersMustBeAskedExplicitly(): void
+    {
+        $app = new Kernel(securityHeaders: null);
+        $app->router->get('/', static fn(): ResponseInterface => new Response());
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertFalse($response->hasHeader('X-Content-Type-Options'));
+        self::assertFalse($response->hasHeader('Content-Security-Policy'));
+    }
+
+    public function testAMiddlewareCanProtectEveryRoute(): void
+    {
+        $guard = new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                return $request->getHeaderLine('Authorization') === 'Bearer bon-jeton'
+                    ? $handler->handle($request)
+                    : new Response(401, [], 'connexion requise');
+            }
+        };
+        $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), middlewares: [$guard]);
+        $app->router->get('/', static fn(): ResponseInterface => new Response(200, [], 'page protégée'));
+
+        $refused = $app->handle(new ServerRequest('GET', '/'));
+        $accepted = $app->handle(new ServerRequest('GET', '/', ['Authorization' => 'Bearer bon-jeton']));
+
+        self::assertSame(401, $refused->getStatusCode());
+        self::assertSame('nosniff', $refused->getHeaderLine('X-Content-Type-Options'), 'Un refus porte aussi les en-têtes de sécurité.');
+        self::assertSame('page protégée', (string) $accepted->getBody());
+    }
+
+    public function testAnExceptionInAMiddlewareBecomesAnErrorPage(): void
+    {
+        $failing = new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                throw new \RuntimeException('panne du middleware');
+            }
+        };
+        $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), middlewares: [$failing]);
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString("default-src 'none'", $response->getHeaderLine('Content-Security-Policy'), 'La page d\'erreur garde sa politique stricte.');
+    }
+
+    public function testSomethingThatIsNotAMiddlewareIsRejectedWhenTheKernelIsCreated(): void
+    {
+        $this->expectException(InvalidMiddlewareException::class);
+
+        new Kernel(middlewares: ['App\\Middleware\\Auth']);
+    }
+
     // --- run() -------------------------------------------------------------
 
     public function testRunAnswersTheRequestFoundInThePhpGlobals(): void
@@ -138,7 +236,9 @@ final class KernelTest extends TestCase
         $output = $this->runKernel($app, ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/bonjour/Ren%C3%A9', 'HTTP_HOST' => 'exemple.com']);
 
         self::assertSame('Bonjour "René"', $output);
-        self::assertSame(['Content-Type: text/plain; charset=utf-8', 'HTTP/1.1 200 OK'], FakeSapi::headerLines());
+        self::assertContains('Content-Type: text/plain; charset=utf-8', FakeSapi::headerLines());
+        self::assertContains('X-Content-Type-Options: nosniff', FakeSapi::headerLines());
+        self::assertSame('HTTP/1.1 200 OK', array_last(FakeSapi::headerLines()));
     }
 
     public function testRunSendsNoBodyForAHeadRequest(): void
@@ -149,7 +249,8 @@ final class KernelTest extends TestCase
         $output = $this->runKernel($app, ['REQUEST_METHOD' => 'HEAD', 'REQUEST_URI' => '/']);
 
         self::assertSame('', $output);
-        self::assertSame(['X-Test: a', 'HTTP/1.1 200 OK'], FakeSapi::headerLines());
+        self::assertContains('X-Test: a', FakeSapi::headerLines());
+        self::assertContains('HTTP/1.1 200 OK', FakeSapi::headerLines());
     }
 
     public function testRunAnswersARejectedRequestWithItsStatus(): void
@@ -268,6 +369,24 @@ final class KernelTest extends TestCase
     }
 
     // --- Outils ------------------------------------------------------------
+
+    /**
+     * Un middleware qui ajoute son nom à l'en-tête X-Ordre de la réponse.
+     */
+    private static function tag(string $name): MiddlewareInterface
+    {
+        return new class ($name) implements MiddlewareInterface {
+            public function __construct(private readonly string $name) {}
+
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                $response = $handler->handle($request);
+                $inner = $response->getHeaderLine('X-Ordre');
+
+                return $response->withHeader('X-Ordre', $inner === '' ? $this->name : $this->name . ', ' . $inner);
+            }
+        };
+    }
 
     private function kernel(bool $development = false): Kernel
     {
