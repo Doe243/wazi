@@ -4,43 +4,93 @@
 <k:block name="entete">
     <!-- Le script de la page lit ce jeton et l'envoie dans l'en-tête X-CSRF-Token. -->
     <meta name="jeton" content="{jeton}">
-    <!-- Un script du site lui-même : la politique de sécurité (CSP) l'autorise. -->
-    <script src="/app.js" defer></script>
 </k:block>
 
-<h1>Mes notes</h1>
+<header class="tete-de-page">
+    <div>
+        <h1>Mes notes</h1>
+        <p class="compte-notes" id="compte">{total} note(s), dont {importantes} épinglée(s)</p>
+    </div>
 
-<section class="carte">
-    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">{erreur}</p>
+    <!-- Une recherche ne change rien : c'est un formulaire GET. Ce qui est saisi
+         part dans l'adresse (/notes?q=pain), que l'on peut garder ou partager.
+         Kioo n'ajoute pas de jeton à un formulaire GET. -->
+    <form method="get" action="/notes" class="recherche" role="search">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#loupe"></use></svg>
+        <label class="lecteur" for="q">Chercher dans mes notes</label>
+        <input id="q" name="q" type="search" value="{recherche}" placeholder="Chercher…" maxlength="60">
+        <input k:if="filtre == 'importantes'" type="hidden" name="filtre" value="importantes">
+    </form>
+</header>
+
+<section class="carte redaction">
+    <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#panne"></use></svg>
+        {erreur}
+    </p>
 
     <form method="post" action="/notes" class="formulaire">
-        <label for="texte">Nouvelle note</label>
-        <textarea id="texte" name="texte" rows="3" maxlength="{longueur_max}" required>{saisie}</textarea>
-        <p class="aide">{longueur_max} caractères au maximum.</p>
-        <button class="bouton">Ajouter</button>
+        <label class="lecteur" for="texte">Nouvelle note</label>
+        <textarea id="texte" name="texte" rows="2" maxlength="{longueur_max}" placeholder="Une idée, une course, un rappel…" required data-compteur="reste">{saisie}</textarea>
+
+        <div class="redaction-pied">
+            <k:include file="partiels/couleurs" couleurs="{couleurs}" choisie="{saisie_couleur}">
+            <span class="aide" id="reste">{longueur_max} caractères au maximum</span>
+            <button class="bouton">
+                <svg class="icone" aria-hidden="true"><use href="/icones.svg#plus"></use></svg>
+                Ajouter
+            </button>
+        </div>
     </form>
 </section>
 
-<p class="compte" id="compte">
-    {notes | length} note(s), dont {importantes} importante(s).
-</p>
+<nav class="filtres" aria-label="Filtrer les notes">
+    <!-- aria-current dit quel filtre est actif ; l'attribut est retiré quand la valeur est fausse. -->
+    <a href="{lien_toutes}" class="filtre" aria-current="{filtre == 'toutes' ? 'page' : false}">Toutes</a>
+    <a href="{lien_importantes}" class="filtre" aria-current="{filtre == 'importantes' ? 'page' : false}">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#epingle"></use></svg>
+        Épinglées
+    </a>
+    <span k:if="recherche != ''" class="aide">
+        {notes | length} résultat(s) pour « {recherche} » · <a href="/notes">tout afficher</a>
+    </span>
+</nav>
 
+<!-- Dans chaque carte :
+     - {note.texte} est échappé : une balise écrite dans une note s'affiche, elle ne s'exécute pas ;
+     - « depuis » est un filtre de cette application (src/Filtres.php) ;
+     - le bouton d'épingle est caché tant que le script n'est pas chargé : sans JavaScript, on
+       épingle depuis la page de la note ;
+     - supprimer change quelque chose, c'est donc un formulaire POST. Le script demande une
+       confirmation ; sans JavaScript, la note est supprimée directement. -->
 <ul class="notes">
-    <li k:for="note in notes" class="{note.importante ? 'note importante' : 'note'}" data-note="{note.id}">
-        <div>
-            <!-- {note.texte} est échappé : une balise écrite dans une note s'affiche, elle ne s'exécute pas. -->
-            <a href="/notes/{note.id}">{note.texte}</a>
-            <p class="date">le {note.creee | date('d/m/Y')} à {note.creee | date('H:i')}</p>
-        </div>
-        <div class="actions">
-            <!-- Caché tant que le script n'est pas chargé : sans JavaScript, on passe par la page de la note. -->
-            <button type="button" class="etoile" hidden aria-pressed="{note.importante ? 'true' : 'false'}">Importante</button>
-            <form method="post" action="/notes/{note.id}/supprimer">
-                <button class="bouton discret danger">Supprimer</button>
-            </form>
-        </div>
+    <li k:for="note in notes" class="note {note.couleur} {note.importante ? 'importante' : ''}" data-note="{note.id}">
+        <a class="note-texte" href="/notes/{note.id}">{note.texte}</a>
+
+        <footer class="note-pied">
+            <time datetime="{note.creee | date('c')}" title="{note.creee | date('d/m/Y à H:i')}">{note.creee | depuis}</time>
+
+            <span class="actions">
+                <button type="button" class="bouton-icone epingle" hidden aria-pressed="{note.importante ? 'true' : 'false'}" aria-label="Épingler cette note">
+                    <svg class="icone" aria-hidden="true"><use href="/icones.svg#epingle"></use></svg>
+                </button>
+                <a class="bouton-icone" href="/notes/{note.id}" aria-label="Modifier cette note">
+                    <svg class="icone" aria-hidden="true"><use href="/icones.svg#crayon"></use></svg>
+                </a>
+                <form method="post" action="/notes/{note.id}/supprimer" data-confirmer>
+                    <button class="bouton-icone danger" aria-label="Supprimer cette note">
+                        <svg class="icone" aria-hidden="true"><use href="/icones.svg#corbeille"></use></svg>
+                    </button>
+                </form>
+            </span>
+        </footer>
     </li>
-    <li k:else class="vide">Aucune note pour l'instant. Écrivez la première.</li>
+
+    <li k:else class="vide">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#page-vide"></use></svg>
+        <p k:if="recherche != ''">Aucune note ne contient « {recherche} ».</p>
+        <p k:else>Rien ici pour l'instant. Écrivez votre première note juste au-dessus.</p>
+    </li>
 </ul>
 
-<p class="aide" k:if="adresse != null">Vous êtes connecté depuis l'adresse <code>{adresse}</code>.</p>
+<p class="aide centre" k:if="adresse != null">Vous êtes connecté depuis l'adresse <code>{adresse}</code>.</p>

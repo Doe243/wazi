@@ -15,25 +15,48 @@ namespace Demo;
  * Vérifier « est-il connecté ? » ne suffit pas : il faut aussi vérifier
  * « est-ce bien à lui ? ». Ici, l'oubli est impossible.
  *
- * @phpstan-type Note array{id: int, auteur: string, texte: string, importante: bool, creee: \DateTimeImmutable}
+ * @phpstan-type Note array{id: int, auteur: string, texte: string, couleur: string, importante: bool, creee: \DateTimeImmutable}
  */
 final readonly class Carnet
 {
     /** La longueur maximale d'une note, en caractères. */
     public const int LONGUEUR_MAX = 280;
 
+    /**
+     * Les couleurs qu'une note peut porter. La première est celle par défaut.
+     *
+     * Sécurité : la couleur choisie par le visiteur finit dans un attribut
+     * class="…" de la page. Elle n'est acceptée que si elle figure dans cette
+     * liste : on ne recopie jamais telle quelle une valeur reçue.
+     */
+    public const array COULEURS = ['neutre', 'lagon', 'miel', 'corail', 'ciel'];
+
     public function __construct(private string $fichier) {}
 
     /**
-     * Les notes d'un auteur, la plus récente en premier.
+     * Les notes d'un auteur : les importantes d'abord, puis de la plus récente à la plus ancienne.
+     *
+     * @param string $recherche         ne garder que les notes qui contiennent ce texte ; vide : toutes
+     * @param bool   $importantesSeules ne garder que les notes importantes
      *
      * @return list<Note>
      */
-    public function de(string $auteur): array
+    public function de(string $auteur, string $recherche = '', bool $importantesSeules = false): array
     {
-        $notes = array_filter($this->lire()['notes'], static fn(array $note): bool => $note['auteur'] === $auteur);
+        $notes = array_values(array_filter(
+            $this->lire()['notes'],
+            static fn(array $note): bool => $note['auteur'] === $auteur
+                && (!$importantesSeules || $note['importante'])
+                // mb_stripos() ne tient pas compte des majuscules, lettres accentuées comprises.
+                && ($recherche === '' || mb_stripos($note['texte'], $recherche) !== false),
+        ));
 
-        return array_reverse(array_values($notes));
+        usort(
+            $notes,
+            static fn(array $a, array $b): int => [$b['importante'], $b['creee'], $b['id']] <=> [$a['importante'], $a['creee'], $a['id']],
+        );
+
+        return $notes;
     }
 
     /**
@@ -44,13 +67,16 @@ final readonly class Carnet
         return array_find($this->de($auteur), static fn(array $note): bool => $note['id'] === $id);
     }
 
-    public function ajouter(string $auteur, string $texte): void
+    public function ajouter(string $auteur, string $texte, string $couleur): void
     {
-        $this->modifierLeFichier(static function (array $contenu) use ($auteur, $texte): array {
+        $couleur = self::couleurPermise($couleur);
+
+        $this->modifierLeFichier(static function (array $contenu) use ($auteur, $texte, $couleur): array {
             $contenu['notes'][] = [
                 'id' => $contenu['suivant'],
                 'auteur' => $auteur,
                 'texte' => $texte,
+                'couleur' => $couleur,
                 'importante' => false,
                 'creee' => new \DateTimeImmutable(),
             ];
@@ -63,9 +89,15 @@ final readonly class Carnet
     /**
      * @return bool faux si la note n'existe pas ou n'est pas à cet auteur
      */
-    public function modifier(int $id, string $auteur, string $texte, bool $importante): bool
+    public function modifier(int $id, string $auteur, string $texte, string $couleur, bool $importante): bool
     {
-        return $this->changer($id, $auteur, static fn(array $note): array => [...$note, 'texte' => $texte, 'importante' => $importante]);
+        $couleur = self::couleurPermise($couleur);
+
+        return $this->changer(
+            $id,
+            $auteur,
+            static fn(array $note): array => [...$note, 'texte' => $texte, 'couleur' => $couleur, 'importante' => $importante],
+        );
     }
 
     /**
@@ -83,6 +115,14 @@ final readonly class Carnet
     public function supprimer(int $id, string $auteur): bool
     {
         return $this->changer($id, $auteur, static fn(): null => null);
+    }
+
+    /**
+     * La couleur demandée si elle fait partie de la liste, la couleur par défaut sinon.
+     */
+    public static function couleurPermise(string $couleur): string
+    {
+        return in_array($couleur, self::COULEURS, true) ? $couleur : self::COULEURS[0];
     }
 
     // ------------------------------------------------------------------
@@ -206,6 +246,7 @@ final readonly class Carnet
                 'id' => $note['id'],
                 'auteur' => $note['auteur'],
                 'texte' => $note['texte'],
+                'couleur' => self::couleurPermise(is_string($note['couleur'] ?? null) ? $note['couleur'] : ''),
                 'importante' => ($note['importante'] ?? false) === true,
                 'creee' => $creee instanceof \DateTimeImmutable ? $creee : new \DateTimeImmutable(),
             ];
@@ -224,21 +265,26 @@ final readonly class Carnet
      */
     private static function notesDeDepart(): array
     {
-        $note = static fn(int $id, string $auteur, string $texte, bool $importante, string $quand): array => [
+        $note = static fn(int $id, string $auteur, string $texte, string $couleur, bool $importante, string $quand): array => [
             'id' => $id,
             'auteur' => $auteur,
             'texte' => $texte,
+            'couleur' => $couleur,
             'importante' => $importante,
             'creee' => new \DateTimeImmutable($quand),
         ];
 
         return [
-            'suivant' => 5,
+            'suivant' => 9,
             'notes' => [
-                $note(1, 'alice', 'Lire le code du routeur : il tient en un fichier.', true, '-3 days'),
-                $note(2, 'alice', 'Essayer d\'écrire <script>alert(1)</script> dans une note.', false, '-2 days'),
-                $note(3, 'alice', 'Acheter du pain.', false, '-5 hours'),
-                $note(4, 'bob', 'Cette note est à Bob : Alice ne peut pas la voir.', false, '-1 day'),
+                $note(1, 'alice', 'Lire le code du routeur : il tient en un fichier, et se lit en dix minutes.', 'lagon', true, '-6 days'),
+                $note(2, 'alice', 'Essayer d\'écrire <script>alert(1)</script> dans une note. Kioo l\'affiche, le navigateur ne l\'exécute pas.', 'corail', false, '-3 days'),
+                $note(3, 'alice', 'Idée : un filtre Kioo « depuis », pour écrire « il y a 3 h » à la place d\'une date.', 'miel', true, '-26 hours'),
+                $note(4, 'bob', 'Cette note est à Bob : Alice ne peut pas la voir.', 'ciel', false, '-1 day'),
+                $note(5, 'alice', 'Acheter du pain.', 'neutre', false, '-5 hours'),
+                $note(6, 'alice', 'Ouvrir /notes/4 : la note de Bob doit rester introuvable.', 'ciel', false, '-50 minutes'),
+                $note(7, 'alice', 'Passer le site en thème sombre, pour voir.', 'neutre', false, '-4 minutes'),
+                $note(8, 'bob', 'Relire la page « La sécurité » du guide.', 'lagon', true, '-2 hours'),
             ],
         ];
     }

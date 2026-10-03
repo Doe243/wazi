@@ -17,18 +17,23 @@ declare(strict_types=1);
 
 use Demo\Carnet;
 use Demo\ConnexionController;
+use Demo\Filtres;
 use Demo\NoteController;
 use Demo\PageController;
 use Demo\WebhookController;
 use Wazi\Config\Config;
+use Wazi\Container\Container;
+use Wazi\Http\CspNonce;
+use Wazi\Http\CsrfToken;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Kernel\Kernel;
+use Wazi\View\Kioo;
 
 require __DIR__ . '/../../../vendor/autoload.php';
 
 // Dans un vrai projet, Composer charge vos classes tout seul (« autoload »).
 // Ici, on les nomme une à une : vous voyez exactement ce qui est chargé.
-foreach (['Carnet', 'Comptes', 'Pages', 'ConnexionRequise', 'PageController', 'ConnexionController', 'NoteController', 'WebhookController'] as $classe) {
+foreach (['Carnet', 'Comptes', 'Filtres', 'Pages', 'ConnexionRequise', 'PageController', 'ConnexionController', 'NoteController', 'WebhookController'] as $classe) {
     require __DIR__ . '/../src/' . $classe . '.php';
 }
 
@@ -62,6 +67,16 @@ $app->container->set(
     WebhookController::class,
     static fn(): WebhookController => new WebhookController($config->string('DEMO_WEBHOOK_SECRET', '')),
 );
+
+// Kioo, avec les filtres de l'application en plus des siens (voir src/Filtres.php).
+// La recette reçoit le conteneur : elle y prend les deux jetons que le noyau a
+// préparés, celui des scripts et celui des formulaires.
+$app->container->set(Kioo::class, static fn(Container $conteneur): Kioo => new Kioo(
+    $racine . '/views',
+    Filtres::tous(),
+    $conteneur->get(CspNonce::class),
+    $conteneur->get(CsrfToken::class),
+));
 
 // Une ligne par contrôleur : ses routes sont écrites à côté de ses méthodes.
 $app->router->addController(PageController::class);

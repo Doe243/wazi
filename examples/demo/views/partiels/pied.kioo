@@ -1,3 +1,6 @@
 <footer class="pied">
-    <p>Démonstration de Wazi, {annee}. « Codez avec l'IA, comprenez avec Wazi. »</p>
+    <div class="pied-interieur">
+        <p>Démonstration de Wazi, {annee}. « Codez avec l'IA, comprenez avec Wazi. »</p>
+        <p>Chaque page de ce site est expliquée dans son code : ouvrez le dossier <code>examples/demo</code>.</p>
+    </div>
 </footer>

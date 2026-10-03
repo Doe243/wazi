@@ -14,7 +14,7 @@ use Wazi\Routing\Attribute\Patch;
 use Wazi\Routing\Attribute\Post;
 
 /**
- * Le carnet d'un visiteur connecté : lire, ajouter, modifier, supprimer.
+ * Le carnet d'un visiteur connecté : lire, chercher, ajouter, modifier, supprimer.
  *
  * Chaque route porte le middleware ConnexionRequise : arrivé dans une de ces
  * méthodes, on sait qu'un visiteur est connecté.
@@ -28,6 +28,9 @@ use Wazi\Routing\Attribute\Post;
  */
 final readonly class NoteController
 {
+    /** Au-delà, ce n'est plus une recherche. */
+    private const int RECHERCHE_MAX = 60;
+
     public function __construct(
         private Carnet $carnet,
         private Pages $pages,
@@ -44,16 +47,17 @@ final readonly class NoteController
     #[Post('/notes', [ConnexionRequise::class])]
     public function ajouter(ServerRequestInterface $request): ResponseInterface
     {
-        $texte = self::texte($request);
+        $texte = self::champ($request, 'texte');
+        $couleur = Carnet::couleurPermise(self::champ($request, 'couleur'));
         $erreur = self::erreurDe($texte);
 
         if ($erreur !== null) {
             // On réaffiche le formulaire avec ce qui a été saisi, et le code
             // 422 : « j'ai compris la demande, mais son contenu ne convient pas ».
-            return $this->pageListe($request, $texte, $erreur, 422);
+            return $this->pageListe($request, $texte, $couleur, $erreur, 422);
         }
 
-        $this->carnet->ajouter($this->auteur(), $texte);
+        $this->carnet->ajouter($this->auteur(), $texte, $couleur);
         $this->session->flash('succes', 'Note ajoutée.');
 
         return new Response(303, ['Location' => '/notes']);
@@ -69,7 +73,7 @@ final readonly class NoteController
 
         return $note === null
             ? $this->pages->page('notes/introuvable', ['id' => $id], 404)
-            : $this->pages->page('notes/note', ['note' => $note, 'saisie' => $note['texte'], 'longueur_max' => Carnet::LONGUEUR_MAX]);
+            : $this->pageNote($note, $note['texte'], $note['couleur'], $note['importante']);
     }
 
     #[Post('/notes/{id:int}', [ConnexionRequise::class])]
@@ -81,16 +85,17 @@ final readonly class NoteController
             return $this->pages->page('notes/introuvable', ['id' => $id], 404);
         }
 
-        $texte = self::texte($request);
+        $texte = self::champ($request, 'texte');
+        $couleur = Carnet::couleurPermise(self::champ($request, 'couleur'));
+        // Une case à cocher non cochée n'est pas envoyée du tout.
+        $importante = self::champ($request, 'importante') === '1';
         $erreur = self::erreurDe($texte);
 
         if ($erreur !== null) {
-            return $this->pages->page('notes/note', ['note' => $note, 'saisie' => $texte, 'erreur' => $erreur, 'longueur_max' => Carnet::LONGUEUR_MAX], 422);
+            return $this->pageNote($note, $texte, $couleur, $importante, $erreur, 422);
         }
 
-        // Une case à cocher non cochée n'est pas envoyée du tout.
-        $importante = ((array) $request->getParsedBody())['importante'] ?? null;
-        $this->carnet->modifier($id, $this->auteur(), $texte, $importante === '1');
+        $this->carnet->modifier($id, $this->auteur(), $texte, $couleur, $importante);
         $this->session->flash('succes', 'Note modifiée.');
 
         return new Response(303, ['Location' => '/notes']);
@@ -126,19 +131,55 @@ final readonly class NoteController
     // Outils internes
     // ------------------------------------------------------------------
 
-    private function pageListe(ServerRequestInterface $request, string $saisie = '', ?string $erreur = null, int $statut = 200): ResponseInterface
-    {
-        $notes = $this->carnet->de($this->auteur());
+    private function pageListe(
+        ServerRequestInterface $request,
+        string $saisie = '',
+        string $couleur = Carnet::COULEURS[0],
+        ?string $erreur = null,
+        int $statut = 200,
+    ): ResponseInterface {
+        // Ce qui suit le « ? » dans l'adresse : /notes?q=pain&filtre=importantes
+        // Comme tout ce qui vient d'une requête, c'est vérifié avant de servir.
+        $parametres = $request->getQueryParams();
+        $recherche = is_string($parametres['q'] ?? null) ? mb_substr(trim($parametres['q']), 0, self::RECHERCHE_MAX) : '';
+        $importantesSeules = ($parametres['filtre'] ?? null) === 'importantes';
+
+        $toutes = $this->carnet->de($this->auteur());
 
         return $this->pages->page('notes/liste', [
-            'notes' => $notes,
-            'importantes' => count(array_filter($notes, static fn(array $note): bool => $note['importante'])),
+            'notes' => $this->carnet->de($this->auteur(), $recherche, $importantesSeules),
+            'total' => count($toutes),
+            'importantes' => count(array_filter($toutes, static fn(array $note): bool => $note['importante'])),
+            'recherche' => $recherche,
+            'filtre' => $importantesSeules ? 'importantes' : 'toutes',
+            // Les adresses des filtres sont construites ici : http_build_query()
+            // encode la recherche pour qu'elle tienne dans une adresse.
+            'lien_toutes' => '/notes' . ($recherche !== '' ? '?' . http_build_query(['q' => $recherche]) : ''),
+            'lien_importantes' => '/notes?' . http_build_query(['filtre' => 'importantes', ...($recherche !== '' ? ['q' => $recherche] : [])]),
+            'couleurs' => Carnet::COULEURS,
             'saisie' => $saisie,
+            'saisie_couleur' => $couleur,
             'erreur' => $erreur,
             // Le script de la page envoie ce jeton dans l'en-tête X-CSRF-Token.
             'jeton' => $this->jeton->value(),
             // L'adresse du visiteur, telle que Wazi l'a établie (ADR-022).
             'adresse' => $request->getAttribute('client_ip'),
+            'longueur_max' => Carnet::LONGUEUR_MAX,
+        ], $statut);
+    }
+
+    /**
+     * @param array{id: int, auteur: string, texte: string, couleur: string, importante: bool, creee: \DateTimeImmutable} $note
+     */
+    private function pageNote(array $note, string $saisie, string $couleur, bool $importante, ?string $erreur = null, int $statut = 200): ResponseInterface
+    {
+        return $this->pages->page('notes/note', [
+            'note' => $note,
+            'couleurs' => Carnet::COULEURS,
+            'saisie' => $saisie,
+            'saisie_couleur' => $couleur,
+            'saisie_importante' => $importante,
+            'erreur' => $erreur,
             'longueur_max' => Carnet::LONGUEUR_MAX,
         ], $statut);
     }
@@ -149,11 +190,14 @@ final readonly class NoteController
         return $this->pages->utilisateur() ?? throw new \LogicException('Cette route doit porter le middleware ConnexionRequise.');
     }
 
-    private static function texte(ServerRequestInterface $request): string
+    /**
+     * Un champ du formulaire, s'il est bien un texte ; un texte vide sinon.
+     */
+    private static function champ(ServerRequestInterface $request, string $nom): string
     {
-        $texte = ((array) $request->getParsedBody())['texte'] ?? null;
+        $valeur = ((array) $request->getParsedBody())[$nom] ?? null;
 
-        return is_string($texte) ? trim($texte) : '';
+        return is_string($valeur) ? trim($valeur) : '';
     }
 
     /**

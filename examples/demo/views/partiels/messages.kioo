@@ -1,2 +1,7 @@
 <!-- role="status" : un lecteur d'écran annonce le message sans que le visiteur le cherche. -->
-<p k:for="message in messages" class="message {message.type}" role="status">{message.texte}</p>
+<div k:if="messages" class="messages">
+    <p k:for="message in messages" class="message {message.type}" role="status">
+        <svg class="icone" aria-hidden="true"><use href="/icones.svg#{message.type == 'succes' ? 'coche' : 'panne'}"></use></svg>
+        {message.texte}
+    </p>
+</div>
