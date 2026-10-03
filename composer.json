@@ -1,0 +1,47 @@
+{
+    "name": "wazi/framework",
+    "description": "Wazi, le framework PHP où tout est clair : puissant, simple, et pensé pour comprendre ce qu'on construit.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["framework", "psr-7", "psr-15", "pedagogique", "wazi"],
+    "require": {
+        "php": "^8.3",
+        "psr/container": "^2.0",
+        "psr/http-factory": "^1.1",
+        "psr/http-message": "^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0"
+    },
+    "require-dev": {
+        "deptrac/deptrac": "^2.0 || ^3.0",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^12.0"
+    },
+    "provide": {
+        "psr/container-implementation": "2.0",
+        "psr/http-factory-implementation": "1.0",
+        "psr/http-message-implementation": "2.0"
+    },
+    "autoload": {
+        "psr-4": { "Wazi\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Wazi\\Tests\\": "tests/" }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "stan": "phpstan analyse",
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "deptrac": "deptrac analyse --no-progress",
+        "check": ["@cs", "@stan", "@deptrac", "@test"]
+    },
+    "scripts-descriptions": {
+        "check": "Lance tous les contrôles qualité, comme l'intégration continue."
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
