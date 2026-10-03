@@ -244,6 +244,7 @@ final class RouteRunnerTest extends TestCase
         yield 'méthode protégée' => [ArticleController::class, 'hidden'];
         yield 'méthode inexistante' => [ArticleController::class, 'absente'];
         yield 'méthode magique __call' => [MagicController::class, 'nimporteQuoi'];
+        yield 'méthode privée d\'une classe qui a un __call' => [MagicController::class, 'prive'];
     }
 
     /**

@@ -19,4 +19,14 @@ final class MagicController
     {
         return new Response(200, [], 'magie : ' . $name);
     }
+
+    private function prive(): Response
+    {
+        return new Response(200, [], 'ne doit jamais être atteint');
+    }
+
+    public function appellePrive(): Response
+    {
+        return $this->prive();
+    }
 }
