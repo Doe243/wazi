@@ -102,4 +102,35 @@ final class InvalidRouteException extends \InvalidArgumentException
             $path,
         ));
     }
+
+    public static function controllerNotFound(string $class): self
+    {
+        return new self(sprintf(
+            'Le contrôleur « %s » est introuvable : aucune classe de ce nom n\'existe. Vérifiez son nom,'
+            . ' son namespace et la ligne « use » correspondante.',
+            preg_replace('/[^a-zA-Z0-9_\\\\]/', '?', $class) ?? '',
+        ));
+    }
+
+    public static function controllerWithoutRoute(string $class): self
+    {
+        return new self(sprintf(
+            'Le contrôleur « %s » ne déclare aucune route. Ajoutez un attribut sur ses méthodes publiques,'
+            . ' par exemple #[Get(\'/articles\')], et vérifiez la ligne « use Wazi\Routing\Attribute\Get; »'
+            . ' en haut du fichier : sans elle, PHP ne reconnaît pas l\'attribut.',
+            $class,
+        ));
+    }
+
+    public static function routeOnNonPublicMethod(string $class, string $method): self
+    {
+        return new self(sprintf(
+            'La méthode « %s » du contrôleur « %s » porte un attribut de route mais n\'est pas publique :'
+            . ' le routeur ne pourrait jamais l\'appeler. Déclarez-la « public function %s(...) »,'
+            . ' ou retirez l\'attribut.',
+            $method,
+            $class,
+            $method,
+        ));
+    }
 }

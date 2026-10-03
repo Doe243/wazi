@@ -11,6 +11,11 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
 use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Pipeline;
+use Wazi\Routing\Attribute\Delete;
+use Wazi\Routing\Attribute\Get;
+use Wazi\Routing\Attribute\Patch;
+use Wazi\Routing\Attribute\Post;
+use Wazi\Routing\Attribute\Put;
 use Wazi\Routing\Exception\InvalidRouteException;
 use Wazi\Routing\Exception\MethodNotAllowedException;
 use Wazi\Routing\Exception\RouteNotFoundException;
@@ -34,6 +39,9 @@ use Wazi\Routing\Exception\RoutingException;
  *
  *     $router->get('/admin', [AdminController::class, 'index'], [RequireLogin::class]);
  *
+ * Enfin, les routes d'un contrôleur peuvent s'écrire à côté de ses méthodes,
+ * avec les attributs #[Get], #[Post]... : voir addController().
+ *
  * Comment il choisit (ADR-009) : il parcourt ses routes dans l'ordre où vous
  * les avez déclarées et prend la PREMIÈRE qui correspond. Déclarez donc
  * « /articles/nouveau » avant « /articles/{slug} », sinon « nouveau » serait
@@ -54,6 +62,15 @@ final class Router implements RequestHandlerInterface
 {
     /** Ce qu'un segment décodé ne doit jamais contenir. */
     private const string UNSAFE_IN_SEGMENT = '#[/\\\\\x00-\x1F\x7F]#';
+
+    /** Les attributs qui déclarent une route sur une méthode, et la méthode HTTP de chacun. */
+    private const array ROUTE_ATTRIBUTES = [
+        Get::class => 'GET',
+        Post::class => 'POST',
+        Put::class => 'PUT',
+        Patch::class => 'PATCH',
+        Delete::class => 'DELETE',
+    ];
 
     /** @var list<Route> */
     private array $routes = [];
@@ -135,6 +152,54 @@ final class Router implements RequestHandlerInterface
         }
 
         $this->routes[] = $route;
+    }
+
+    /**
+     * Déclare toutes les routes écrites en attributs sur les méthodes d'un contrôleur :
+     *
+     *     final class ArticleController
+     *     {
+     *         #[Get('/articles/{id:int}')]
+     *         public function show(int $id): ResponseInterface { ... }
+     *     }
+     *
+     *     $router->addController(ArticleController::class);
+     *
+     * Les contrôleurs se déclarent un par un, ici, dans votre code : Wazi ne
+     * parcourt aucun dossier à la recherche de classes. Vous savez toujours
+     * d'où vient une route, et rien d'inattendu n'est chargé (ADR-016).
+     *
+     * @param class-string $class
+     *
+     * @throws InvalidRouteException      si la classe est introuvable, n'a aucune route, ou si une route est mal déclarée
+     * @throws InvalidMiddlewareException si une route porte autre chose qu'un middleware
+     */
+    public function addController(string $class): void
+    {
+        if (!class_exists($class)) {
+            throw InvalidRouteException::controllerNotFound($class);
+        }
+
+        $found = false;
+
+        foreach (new \ReflectionClass($class)->getMethods() as $method) {
+            foreach (self::ROUTE_ATTRIBUTES as $attributeClass => $httpMethod) {
+                foreach ($method->getAttributes($attributeClass) as $attribute) {
+                    // Une route sur une méthode privée ne pourrait jamais être exécutée.
+                    if (!$method->isPublic()) {
+                        throw InvalidRouteException::routeOnNonPublicMethod($class, $method->getName());
+                    }
+
+                    $declared = $attribute->newInstance();
+                    $this->add([$httpMethod], $declared->path, [$class, $method->getName()], $declared->middlewares);
+                    $found = true;
+                }
+            }
+        }
+
+        if (!$found) {
+            throw InvalidRouteException::controllerWithoutRoute($class);
+        }
     }
 
     // ------------------------------------------------------------------
