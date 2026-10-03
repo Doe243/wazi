@@ -143,4 +143,14 @@ final class InvalidMessageException extends \InvalidArgumentException
             $maxBodySize,
         ));
     }
+
+    public static function invalidProxy(string $proxy): self
+    {
+        return new self(sprintf(
+            '« %s » n\'est pas une adresse de proxy valide. Donnez une adresse IP (\'10.0.0.5\') ou une plage'
+            . ' (\'10.0.0.0/8\'). C\'est l\'adresse de la machine qui transmet les requêtes à PHP : un répartiteur'
+            . ' de charge, un proxy nginx, le réseau de votre hébergeur.',
+            ValuePreview::of($proxy),
+        ));
+    }
 }

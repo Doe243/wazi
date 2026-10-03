@@ -31,7 +31,8 @@ use Wazi\Http\Exception\RequestRejectedException;
  *   - L'en-tête Host doit être un nom d'hôte valide ; si vous déclarez des
  *     hôtes de confiance, tout autre hôte est refusé.
  *   - Les en-têtes X-Forwarded-* (posés par un proxy... ou inventés par un
- *     attaquant) ne sont JAMAIS utilisés pour construire la requête.
+ *     attaquant) ne sont utilisés que si la requête arrive d'un proxy que vous
+ *     avez déclaré de confiance (ADR-022). Sinon, ils sont ignorés.
  *   - Aucune « méthode de remplacement » (champ _method, en-tête
  *     X-HTTP-Method-Override) : la méthode est celle de la requête, point.
  *   - L'URI est assemblée puis confiée à l'unique analyseur d'URI de Wazi.
@@ -49,18 +50,26 @@ final readonly class ServerRequestCreator
     /** Les types de contenu d'un formulaire HTML, pour lesquels PHP remplit $_POST. */
     private const array FORM_CONTENT_TYPES = ['application/x-www-form-urlencoded', 'multipart/form-data'];
 
+    /** Le nom de l'attribut de la requête qui porte l'adresse IP du visiteur. */
+    public const string CLIENT_IP = 'client_ip';
+
     /** @var list<string> */
     private array $trustedHosts;
 
+    /** @var list<IpRange> */
+    private array $trustedProxies;
+
     /**
-     * @param int          $maxBodySize  taille maximale du corps d'une requête, en octets
-     * @param list<string> $trustedHosts les noms d'hôtes de votre site ('exemple.com') ; vide : tout hôte valide est accepté
+     * @param int          $maxBodySize    taille maximale du corps d'une requête, en octets
+     * @param list<string> $trustedHosts   les noms d'hôtes de votre site ('exemple.com') ; vide : tout hôte valide est accepté
+     * @param list<string> $trustedProxies les adresses de VOS proxies ('10.0.0.5', '10.0.0.0/8') ; vide : aucun en-tête X-Forwarded-* n'est cru
      *
-     * @throws InvalidMessageException si la limite est négative
+     * @throws InvalidMessageException si la limite est négative, ou si une adresse de proxy est invalide
      */
     public function __construct(
         private int $maxBodySize = self::DEFAULT_MAX_BODY_SIZE,
         array $trustedHosts = [],
+        array $trustedProxies = [],
     ) {
         if ($maxBodySize < 0) {
             throw InvalidMessageException::negativeBodyLimit($maxBodySize);
@@ -68,6 +77,14 @@ final readonly class ServerRequestCreator
 
         // Un nom d'hôte ne tient pas compte de la casse.
         $this->trustedHosts = array_map(strtolower(...), $trustedHosts);
+
+        $ranges = [];
+
+        foreach ($trustedProxies as $proxy) {
+            $ranges[] = IpRange::fromString($proxy) ?? throw InvalidMessageException::invalidProxy($proxy);
+        }
+
+        $this->trustedProxies = $ranges;
     }
 
     /**
@@ -135,6 +152,9 @@ final readonly class ServerRequestCreator
 
         // $_POST n'a de sens que pour un formulaire : pour du JSON, par exemple,
         // PHP le laisse vide et le corps reste à analyser.
+        // L'adresse du visiteur : vos contrôleurs la lisent par $request->getAttribute('client_ip').
+        $request = $request->withAttribute(self::CLIENT_IP, $this->clientIp($server));
+
         return self::isFormSubmission($request) ? $request->withParsedBody($post) : $request;
     }
 
@@ -172,10 +192,19 @@ final readonly class ServerRequestCreator
      */
     private function uriFrom(array $server): Uri
     {
-        // Seul le serveur web dit si la connexion est chiffrée. L'en-tête
-        // X-Forwarded-Proto, que le client peut écrire lui-même, est ignoré.
+        // Sans proxy de confiance, seul le serveur web dit si la connexion est
+        // chiffrée : l'en-tête X-Forwarded-Proto, que n'importe quel client
+        // peut écrire lui-même, est ignoré.
         $https = $server['HTTPS'] ?? '';
         $scheme = is_string($https) && $https !== '' && strtolower($https) !== 'off' ? 'https' : 'http';
+
+        // Derrière un de VOS proxies, c'est lui qui a reçu la connexion du
+        // visiteur : on croit ce qu'il en dit.
+        $forwardedScheme = $this->forwarded($server, 'HTTP_X_FORWARDED_PROTO');
+
+        if ($forwardedScheme !== null && in_array(strtolower($forwardedScheme), ['http', 'https'], true)) {
+            $scheme = strtolower($forwardedScheme);
+        }
 
         $authority = $this->authorityFrom($server, $scheme);
         $target = is_string($server['REQUEST_URI'] ?? null) ? $server['REQUEST_URI'] : '/';
@@ -206,7 +235,9 @@ final readonly class ServerRequestCreator
      */
     private function authorityFrom(array $server, string $scheme): string
     {
-        $host = $server['HTTP_HOST'] ?? '';
+        // L'hôte annoncé par un proxy de confiance passe, comme tout autre,
+        // par les vérifications qui suivent (forme valide, hôtes de confiance).
+        $host = $this->forwarded($server, 'HTTP_X_FORWARDED_HOST') ?? $server['HTTP_HOST'] ?? '';
 
         if (!is_string($host) || $host === '') {
             $host = self::configuredHost($server);
@@ -234,6 +265,87 @@ final readonly class ServerRequestCreator
         }
 
         return $uri->getAuthority();
+    }
+
+    // ------------------------------------------------------------------
+    // Proxies de confiance
+    // ------------------------------------------------------------------
+
+    /**
+     * Vrai si la requête arrive directement d'un proxy déclaré de confiance.
+     *
+     * Sécurité (ADR-022) : REMOTE_ADDR est l'adresse de la machine qui s'est
+     * réellement connectée à PHP. Elle ne se falsifie pas par un en-tête.
+     *
+     * @param array<array-key, mixed> $server
+     */
+    private function comesFromTrustedProxy(array $server): bool
+    {
+        $remote = $server['REMOTE_ADDR'] ?? null;
+
+        return is_string($remote) && $this->isTrustedProxy($remote);
+    }
+
+    private function isTrustedProxy(string $ip): bool
+    {
+        return array_any($this->trustedProxies, static fn(IpRange $range): bool => $range->contains($ip));
+    }
+
+    /**
+     * La valeur d'un en-tête X-Forwarded-*, seulement si la requête vient d'un
+     * proxy de confiance. S'il contient plusieurs valeurs, la première.
+     *
+     * @param array<array-key, mixed> $server
+     */
+    private function forwarded(array $server, string $key): ?string
+    {
+        $value = $server[$key] ?? null;
+
+        if (!is_string($value) || !$this->comesFromTrustedProxy($server)) {
+            return null;
+        }
+
+        $first = trim(explode(',', $value, 2)[0]);
+
+        return $first !== '' ? $first : null;
+    }
+
+    /**
+     * L'adresse IP du visiteur.
+     *
+     * Sans proxy de confiance, c'est l'adresse qui s'est connectée à PHP.
+     * Derrière vos proxies, chacun ajoute à droite de X-Forwarded-For l'adresse
+     * qu'il a vue : « visiteur, proxy1, proxy2 ». On lit de DROITE à GAUCHE et
+     * on s'arrête à la première adresse qui n'est pas un de vos proxies.
+     *
+     * Sécurité : un client peut écrire ce qu'il veut à GAUCHE de cette liste.
+     * En partant de la droite, on ne lit que ce que vos proxies ont écrit.
+     *
+     * @param array<array-key, mixed> $server
+     */
+    private function clientIp(array $server): string
+    {
+        $remote = is_string($server['REMOTE_ADDR'] ?? null) ? $server['REMOTE_ADDR'] : '';
+        $chain = $server['HTTP_X_FORWARDED_FOR'] ?? null;
+
+        if (!is_string($chain) || !$this->comesFromTrustedProxy($server)) {
+            return $remote;
+        }
+
+        foreach (array_reverse(explode(',', $chain)) as $address) {
+            $address = trim($address);
+
+            // Une entrée qui n'est pas une adresse : on ne va pas plus loin.
+            if (filter_var($address, FILTER_VALIDATE_IP) === false) {
+                break;
+            }
+
+            if (!$this->isTrustedProxy($address)) {
+                return $address;
+            }
+        }
+
+        return $remote;
     }
 
     /**
