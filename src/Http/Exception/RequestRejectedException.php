@@ -4,22 +4,34 @@ declare(strict_types=1);
 
 namespace Wazi\Http\Exception;
 
+use Wazi\Contracts\HttpError;
+
 /**
  * Levée quand la requête reçue du navigateur est refusée avant même d'atteindre
  * votre code : corps trop gros, en-tête Host invalide ou non autorisé...
  *
  * Ce n'est pas une erreur de votre application : c'est le client qui a envoyé
  * quelque chose d'inacceptable. Le code de statut HTTP à lui répondre est
- * dans $statusCode (400 « requête incorrecte », 413 « contenu trop gros »).
+ * donné par getStatusCode() (400 « requête incorrecte », 413 « contenu trop gros »).
  *
  * Les messages s'adressent au développeur qui lit le journal, pas au visiteur :
  * ils disent quoi régler si le refus n'est pas voulu.
  */
-final class RequestRejectedException extends \RuntimeException
+final class RequestRejectedException extends \RuntimeException implements HttpError
 {
-    private function __construct(string $message, public readonly int $statusCode, ?\Throwable $previous = null)
+    private function __construct(string $message, private readonly int $statusCode, ?\Throwable $previous = null)
     {
         parent::__construct($message, 0, $previous);
+    }
+
+    public function getStatusCode(): int
+    {
+        return $this->statusCode;
+    }
+
+    public function getResponseHeaders(): array
+    {
+        return [];
     }
 
     /**
