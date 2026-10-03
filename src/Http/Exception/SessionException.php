@@ -30,6 +30,16 @@ final class SessionException extends \LogicException
         ));
     }
 
+    public static function invalidRememberDuration(int $days, int $maximum): self
+    {
+        return new self(sprintf(
+            'remember() a reçu une durée de %d jour(s). Elle doit être comprise entre 1 et %d jours :'
+            . ' par exemple $session->remember(30) pour un mois.',
+            $days,
+            $maximum,
+        ));
+    }
+
     public static function reservedKey(string $key): self
     {
         return new self(sprintf(

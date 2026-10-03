@@ -259,16 +259,33 @@ final class SessionMiddlewareTest extends TestCase
         self::assertSame([str_repeat('e', 64) . '.json'], $this->sessionFiles());
     }
 
+    /**
+     * La date du fichier est sa date d'expiration : deux heures après la
+     * dernière visite, sauf « se souvenir de moi ».
+     */
     public function testEachRequestPostponesTheExpiry(): void
     {
         $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('a', 1)));
         $file = $this->sessions . '/' . $cookie . '.json';
-        touch($file, time() - 1000);
+        touch($file, time() + 10);
 
         $this->request(static fn(Session $session): mixed => $session->get('a'), $cookie);
         clearstatcache();
 
-        self::assertGreaterThan(time() - 10, filemtime($file));
+        self::assertGreaterThan(time() + 7000, filemtime($file));
+        self::assertLessThanOrEqual(time() + 7200, filemtime($file));
+    }
+
+    public function testASessionExpiresAtTheDateOfItsFile(): void
+    {
+        $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('user_id', 42)));
+        touch($this->sessions . '/' . $cookie . '.json', time() - 1);
+        clearstatcache();
+
+        $response = $this->request(static fn(Session $session): string => json_encode($session->all(), JSON_THROW_ON_ERROR), $cookie);
+
+        self::assertSame('[]', (string) $response->getBody());
+        self::assertSame([], $this->sessionFiles());
     }
 
     public function testTheStoreIgnoresAnIdentifierThatIsNotOne(): void
@@ -303,6 +320,291 @@ final class SessionMiddlewareTest extends TestCase
                 $_SERVER['DOCUMENT_ROOT'] = $previous;
             }
         }
+    }
+
+    // --- Messages pour la page suivante ------------------------------------
+
+    /**
+     * Le parcours habituel : le formulaire réussit, on redirige, la page
+     * suivante affiche le message, et il n'en reste rien ensuite.
+     */
+    public function testAFlashMessageSurvivesOneRedirection(): void
+    {
+        $posted = $this->request(static fn(Session $session) => $session->flash('succes', 'Note ajoutée.'));
+        $cookie = self::cookieValue($posted);
+
+        self::assertNotSame('', $cookie);
+
+        $shown = $this->request(static fn(Session $session): mixed => $session->takeFlash('succes'), $cookie);
+
+        self::assertSame('Note ajoutée.', (string) $shown->getBody());
+        self::assertSame([], $this->sessionFiles(), 'Le message était tout le contenu : la session disparaît avec lui.');
+        self::assertStringContainsString('Max-Age=0', $shown->getHeaderLine('Set-Cookie'));
+    }
+
+    public function testAFlashMessageDoesNotEndTheSessionOfAVisitorWhoIsLoggedIn(): void
+    {
+        $cookie = self::cookieValue($this->request(static function (Session $session): void {
+            $session->set('user_id', 42);
+            $session->flash('succes', 'Bienvenue.');
+        }));
+
+        $shown = $this->request(static fn(Session $session): mixed => $session->takeFlash('succes'), $cookie);
+        $after = $this->request(static fn(Session $session): string => json_encode($session->all(), JSON_THROW_ON_ERROR), $cookie);
+
+        self::assertSame('Bienvenue.', (string) $shown->getBody());
+        self::assertFalse($shown->hasHeader('Set-Cookie'));
+        self::assertSame('{"user_id":42}', (string) $after->getBody());
+    }
+
+    // --- « Se souvenir de moi » ---------------------------------------------
+
+    public function testAnOrdinaryCookieDisappearsWithTheBrowser(): void
+    {
+        $cookie = $this->request(static fn(Session $session) => $session->set('user_id', 42))->getHeaderLine('Set-Cookie');
+
+        self::assertStringNotContainsString('Max-Age', $cookie);
+        self::assertStringNotContainsString('Expires', $cookie);
+    }
+
+    public function testRememberMakesTheCookieAndTheFileLast(): void
+    {
+        $response = $this->request(static function (Session $session): void {
+            $session->set('user_id', 42);
+            $session->remember(30);
+        });
+        $cookie = self::cookieValue($response);
+
+        self::assertMatchesRegularExpression(
+            '/^session=[a-f0-9]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=2592000$/D',
+            $response->getHeaderLine('Set-Cookie'),
+        );
+
+        clearstatcache();
+        $expiry = filemtime($this->sessions . '/' . $cookie . '.json');
+
+        self::assertGreaterThan(time() + 30 * 86400 - 60, $expiry);
+        self::assertLessThanOrEqual(time() + 30 * 86400, $expiry);
+    }
+
+    /**
+     * Chaque visite repousse l'échéance : celle du fichier et celle du cookie.
+     */
+    public function testEachVisitOfARememberedVisitorPostponesBoth(): void
+    {
+        $cookie = self::cookieValue($this->request(static function (Session $session): void {
+            $session->set('user_id', 42);
+            $session->remember(7);
+        }));
+        $file = $this->sessions . '/' . $cookie . '.json';
+        touch($file, time() + 3600);
+
+        $response = $this->request(static fn(Session $session): mixed => $session->get('user_id'), $cookie);
+        clearstatcache();
+
+        self::assertSame('session=' . $cookie . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800', $response->getHeaderLine('Set-Cookie'));
+        self::assertGreaterThan(time() + 7 * 86400 - 60, filemtime($file));
+    }
+
+    public function testTheRememberedCookieIsSecureOnHttps(): void
+    {
+        $cookie = $this->request(static fn(Session $session) => $session->remember(1), null, 'https://exemple.com/')->getHeaderLine('Set-Cookie');
+
+        self::assertStringEndsWith('; HttpOnly; SameSite=Lax; Secure; Max-Age=86400', $cookie);
+    }
+
+    public function testLoggingOutEndsARememberedSession(): void
+    {
+        $cookie = self::cookieValue($this->request(static function (Session $session): void {
+            $session->set('user_id', 42);
+            $session->remember(30);
+        }));
+
+        $response = $this->request(static fn(Session $session) => $session->clear(), $cookie);
+
+        self::assertStringContainsString('session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0', $response->getHeaderLine('Set-Cookie'));
+        self::assertSame([], $this->sessionFiles());
+    }
+
+    /**
+     * Sécurité : une durée abîmée dans le fichier ne donne pas une session éternelle.
+     */
+    public function testADamagedLifetimeFallsBackToTheOrdinaryOne(): void
+    {
+        $id = str_repeat('b', 64);
+        $store = new FileSessionStore($this->sessions);
+        $store->write($id, ['user_id' => 42, '_remember' => PHP_INT_MAX]);
+
+        $response = $this->request(static fn(Session $session): mixed => $session->get('user_id'), $id);
+        clearstatcache();
+
+        self::assertFalse($response->hasHeader('Set-Cookie'));
+        self::assertLessThanOrEqual(time() + 7200, filemtime($this->sessions . '/' . $id . '.json'));
+    }
+
+    // --- Verrou : deux requêtes du même visiteur ----------------------------
+
+    /**
+     * Pendant qu'une requête tient la session, une autre requête du même
+     * visiteur attend. Ici, elle renonce vite : on a réglé son attente à 50 ms.
+     */
+    public function testASecondRequestWaitsForTheFirst(): void
+    {
+        $id = str_repeat('c', 64);
+        $first = new FileSessionStore($this->sessions);
+        $second = new FileSessionStore($this->sessions, 7200, 0.05);
+        $first->write($id, ['compteur' => 1]);
+
+        $first->lock($id);
+
+        try {
+            $second->lock($id);
+            self::fail('Une exception était attendue.');
+        } catch (SessionStoreException $exception) {
+            self::assertStringContainsString('réservée par une autre requête', $exception->getMessage());
+            self::assertStringContainsString('0,05 seconde', $exception->getMessage());
+            self::assertStringNotContainsString($id, $exception->getMessage());
+        }
+
+        $first->unlock($id);
+
+        $second->lock($id);
+        self::assertSame(['compteur' => 1], $second->read($id));
+        $second->unlock($id);
+    }
+
+    public function testTheSessionIsHeldDuringTheWholeRequest(): void
+    {
+        $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('compteur', 1)));
+        $other = new FileSessionStore($this->sessions, 7200, 0.05);
+
+        $response = $this->request(static function (Session $session) use ($other): string {
+            try {
+                $other->lock($session->id());
+            } catch (SessionStoreException) {
+                return 'réservée';
+            }
+
+            return 'libre';
+        }, $cookie);
+
+        self::assertSame('réservée', (string) $response->getBody());
+
+        // La requête terminée, la session est libre.
+        $other->lock($cookie);
+        $other->unlock($cookie);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testTheSessionIsReleasedEvenWhenTheControllerFails(): void
+    {
+        $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('compteur', 1)));
+
+        try {
+            $this->request(static fn(Session $session) => throw new \RuntimeException('panne'), $cookie);
+            self::fail('Une exception était attendue.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('panne', $exception->getMessage());
+        }
+
+        $other = new FileSessionStore($this->sessions, 7200, 0.05);
+        $other->lock($cookie);
+        $other->unlock($cookie);
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * Sécurité : un robot qui envoie des identifiants inventés ne doit pas
+     * pouvoir remplir le disque de fichiers de verrou.
+     */
+    public function testAnUnknownIdentifierCreatesNoLockFile(): void
+    {
+        mkdir($this->sessions, 0o777, true);
+
+        $this->request(static fn(Session $session): mixed => $session->get('a'), str_repeat('a', 64));
+        new FileSessionStore($this->sessions)->lock(str_repeat('b', 64));
+        new FileSessionStore($this->sessions)->lock('../../public/piege');
+
+        self::assertSame([], $this->sessionFiles());
+        self::assertFileDoesNotExist($this->directory . '/public/piege.json.lock');
+    }
+
+    public function testAVisitorWithoutSessionCreatesNoLockFile(): void
+    {
+        $this->request(static fn(Session $session) => $session->set('a', 1));
+
+        self::assertCount(1, $this->sessionFiles());
+    }
+
+    public function testLockingTwiceAndUnlockingWithoutLockAreHarmless(): void
+    {
+        $id = str_repeat('c', 64);
+        $store = new FileSessionStore($this->sessions, 7200, 0.05);
+        $store->write($id, ['a' => 1]);
+
+        $store->unlock($id);
+        $store->lock($id);
+        $store->lock($id);
+        $store->unlock($id);
+        $store->unlock($id);
+
+        $other = new FileSessionStore($this->sessions, 7200, 0.05);
+        $other->lock($id);
+        $other->unlock($id);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testTheLockFileDisappearsWithTheSession(): void
+    {
+        $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('user_id', 42)));
+        $this->request(static fn(Session $session): mixed => $session->get('user_id'), $cookie);
+
+        self::assertSame([$cookie . '.json', $cookie . '.json.lock'], $this->sessionFiles());
+
+        $this->request(static fn(Session $session) => $session->clear(), $cookie);
+
+        self::assertSame([], $this->sessionFiles());
+    }
+
+    public function testRegenerateLeavesNoLockFileBehind(): void
+    {
+        $before = self::cookieValue($this->request(static fn(Session $session) => $session->set('user_id', 42)));
+        $after = self::cookieValue($this->request(static fn(Session $session) => $session->regenerate(), $before));
+
+        self::assertSame([$after . '.json'], $this->sessionFiles());
+    }
+
+    public function testCleaningUpRemovesTheLockFilesOfSessionsThatAreGone(): void
+    {
+        $store = new FileSessionStore($this->sessions, 60);
+        $expired = str_repeat('d', 64);
+        $alive = str_repeat('e', 64);
+
+        foreach ([$expired, $alive] as $id) {
+            $store->write($id, ['a' => 1]);
+            $store->lock($id);
+            $store->unlock($id);
+        }
+
+        touch($this->sessions . '/' . $expired . '.json', time() - 1);
+        clearstatcache();
+
+        $store->removeExpired();
+
+        self::assertSame([$alive . '.json', $alive . '.json.lock'], $this->sessionFiles());
+    }
+
+    public function testAnExpiredSessionReadUnderLockLeavesNothing(): void
+    {
+        $cookie = self::cookieValue($this->request(static fn(Session $session) => $session->set('user_id', 42)));
+        $this->request(static fn(Session $session): mixed => $session->get('user_id'), $cookie);
+        touch($this->sessions . '/' . $cookie . '.json', time() - 1);
+        clearstatcache();
+
+        $response = $this->request(static fn(Session $session): string => $session->isNew() ? 'nouvelle' : 'connue', $cookie);
+
+        self::assertSame('nouvelle', (string) $response->getBody());
+        self::assertSame([], $this->sessionFiles());
     }
 
     // --- Outils ------------------------------------------------------------

@@ -21,6 +21,9 @@ use Wazi\Http\Session;
  * aucun fichier : la session ne commence à exister que lorsque votre code y
  * note quelque chose.
  *
+ * Pendant toute la requête, la session du visiteur est réservée : s'il envoie
+ * une autre requête en même temps, elle attend la fin de celle-ci (ADR-024).
+ *
  * Sécurité (ADR-006 et ADR-021) — le cookie est envoyé avec :
  *   - HttpOnly  : le JavaScript de la page ne peut pas le lire. Un script
  *                 injecté ne peut donc pas voler la session ;
@@ -46,15 +49,27 @@ final readonly class SessionMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $receivedId = $this->receivedId($request);
-        $data = $receivedId !== null ? $this->store->read($receivedId) : null;
 
-        // Identifiant inconnu ou expiré : on repart d'une session neuve, avec
-        // un identifiant que le SERVEUR choisit.
-        $this->session->start($data !== null ? $receivedId : null, $data ?? []);
+        if ($receivedId === null) {
+            $this->session->start(null);
 
-        $response = $handler->handle($request->withAttribute(Session::class, $this->session));
+            return $this->save($request, $handler->handle($request->withAttribute(Session::class, $this->session)));
+        }
 
-        return $this->save($request, $response);
+        $this->store->lock($receivedId);
+
+        try {
+            $data = $this->store->read($receivedId);
+
+            // Identifiant inconnu ou expiré : on repart d'une session neuve, avec
+            // un identifiant que le SERVEUR choisit.
+            $this->session->start($data !== null ? $receivedId : null, $data ?? []);
+
+            return $this->save($request, $handler->handle($request->withAttribute(Session::class, $this->session)));
+        } finally {
+            // Même si votre code lève une exception, la session est libérée.
+            $this->store->unlock($receivedId);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -88,21 +103,28 @@ final readonly class SessionMiddleware implements MiddlewareInterface
         if ($isEmpty) {
             $this->store->delete($session->id());
 
-            return $response->withAddedHeader('Set-Cookie', $this->cookie($request, '', true));
+            return $response->withAddedHeader('Set-Cookie', $this->cookie($request, '', 0));
         }
 
         // Réécrire le fichier à chaque requête repousse aussi son expiration.
-        $this->store->write($session->id(), $session->all());
+        $lifetime = $session->lifetime();
+        $this->store->write($session->id(), $session->all(), $lifetime);
 
-        // Le cookie n'est renvoyé que si l'identifiant est nouveau pour le navigateur.
-        if ($session->isNew() || $session->discardedId() !== null) {
-            return $response->withAddedHeader('Set-Cookie', $this->cookie($request, $session->id(), false));
+        // Le cookie n'est renvoyé que si l'identifiant est nouveau pour le
+        // navigateur. Exception : « se souvenir de moi », où chaque visite
+        // repousse aussi la date à laquelle le navigateur oubliera le cookie.
+        if ($session->isNew() || $session->discardedId() !== null || $lifetime !== null) {
+            return $response->withAddedHeader('Set-Cookie', $this->cookie($request, $session->id(), $lifetime));
         }
 
         return $response;
     }
 
-    private function cookie(ServerRequestInterface $request, string $value, bool $expired): string
+    /**
+     * @param int|null $maxAge la durée pendant laquelle le navigateur garde le cookie, en secondes ;
+     *                         null : jusqu'à la fermeture du navigateur ; 0 : il le supprime
+     */
+    private function cookie(ServerRequestInterface $request, string $value, ?int $maxAge): string
     {
         $cookie = $this->cookieName . '=' . $value . '; Path=/; HttpOnly; SameSite=Lax';
 
@@ -110,7 +132,11 @@ final readonly class SessionMiddleware implements MiddlewareInterface
             $cookie .= '; Secure';
         }
 
-        // Une date passée demande au navigateur de supprimer le cookie.
-        return $expired ? $cookie . '; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : $cookie;
+        return match ($maxAge) {
+            null => $cookie,
+            // Une date passée demande au navigateur de supprimer le cookie.
+            0 => $cookie . '; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+            default => $cookie . '; Max-Age=' . $maxAge,
+        };
     }
 }
