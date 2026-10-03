@@ -8,7 +8,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UploadedFileInterface;
 use Wazi\Http\Exception\InvalidMessageException;
-use Wazi\Http\Exception\InvalidUriException;
 use Wazi\Http\Exception\RequestRejectedException;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Http\Stream;
@@ -132,11 +131,35 @@ final class ServerRequestCreatorTest extends TestCase
         self::assertSame('Bearer jeton', $request->getHeaderLine('Authorization'));
     }
 
-    public function testAHeaderThatWouldInjectContentIsRejected(): void
+    /**
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function malformedRequests(): iterable
     {
-        $this->expectException(InvalidMessageException::class);
+        yield 'en-tête avec injection' => [['HTTP_X_TEST' => "a\r\nSet-Cookie: session=piege"]];
+        yield 'méthode avec espace' => [['REQUEST_METHOD' => 'GET POST']];
+        yield 'adresse avec espace' => [['HTTP_HOST' => 'exemple.com', 'REQUEST_URI' => '/mon article']];
+        yield 'adresse complète invalide' => [['REQUEST_URI' => 'C:/Program Files/Git/']];
+    }
 
-        new ServerRequestCreator()->fromArrays(['HTTP_X_TEST' => "a\r\nSet-Cookie: session=piege"]);
+    /**
+     * Ces défauts viennent du client : ils donnent un refus (400) que le
+     * framework sait traiter, pas une erreur de programmation.
+     *
+     * @param array<string, string> $server
+     */
+    #[DataProvider('malformedRequests')]
+    public function testAMalformedRequestIsRejectedWithA400(array $server): void
+    {
+        try {
+            new ServerRequestCreator()->fromArrays($server);
+            self::fail('Une exception était attendue.');
+        } catch (RequestRejectedException $exception) {
+            self::assertSame(400, $exception->statusCode);
+            self::assertInstanceOf(\InvalidArgumentException::class, $exception->getPrevious());
+            self::assertStringNotContainsString("\n", $exception->getMessage());
+            self::assertStringNotContainsString('piege', $exception->getMessage());
+        }
     }
 
     // --- URI ---------------------------------------------------------------
@@ -174,13 +197,6 @@ final class ServerRequestCreatorTest extends TestCase
         $server = ['HTTP_HOST' => 'exemple.com', 'REQUEST_URI' => 'http://pirate.com/page?a=1'];
 
         self::assertSame('http://exemple.com/page?a=1', (string) new ServerRequestCreator()->fromArrays($server)->getUri());
-    }
-
-    public function testAnInvalidRequestTargetIsRejected(): void
-    {
-        $this->expectException(InvalidUriException::class);
-
-        new ServerRequestCreator()->fromArrays(['HTTP_HOST' => 'exemple.com', 'REQUEST_URI' => '/mon article']);
     }
 
     // --- Sécurité : hôte ---------------------------------------------------

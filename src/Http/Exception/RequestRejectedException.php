@@ -17,9 +17,23 @@ namespace Wazi\Http\Exception;
  */
 final class RequestRejectedException extends \RuntimeException
 {
-    private function __construct(string $message, public readonly int $statusCode)
+    private function __construct(string $message, public readonly int $statusCode, ?\Throwable $previous = null)
     {
-        parent::__construct($message);
+        parent::__construct($message, 0, $previous);
+    }
+
+    /**
+     * La méthode, l'adresse demandée ou un en-tête de la requête est invalide.
+     * La raison précise est celle de l'exception d'origine, gardée dans getPrevious().
+     */
+    public static function malformedRequest(\InvalidArgumentException $reason): self
+    {
+        return new self(
+            'La requête reçue est mal formée, Wazi la refuse. ' . $reason->getMessage()
+            . ' Si la requête vient d\'un navigateur ordinaire, vérifiez la configuration du serveur web.',
+            400,
+            $reason,
+        );
     }
 
     public static function bodyTooLarge(int $maxBodySize): self
