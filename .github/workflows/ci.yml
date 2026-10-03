@@ -24,6 +24,9 @@ jobs:
       - name: Installer les dépendances
         run: composer install --no-interaction --no-progress --prefer-dist
 
+      - name: Audit de sécurité des dépendances
+        run: composer audit
+
       - name: Style de code
         run: composer cs
 
