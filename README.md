@@ -6,7 +6,7 @@
 
 Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'IDE, chaque erreur explique sa cause et la solution.
 
-> **Statut : en construction (0.2 « Ça s'organise »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, erreurs pédagogiques. Pas encore de vues ni de base de données. L'API peut encore changer.
+> **Statut : en construction (0.2 « Ça s'organise »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, configuration par `.env`, templates Kioo, erreurs pédagogiques. Pas encore de sessions, de formulaires ni de base de données. L'API peut encore changer.
 
 ## Un premier exemple
 
@@ -33,8 +33,8 @@ $app->run();
 Deux exemples à lancer, chacun en un seul fichier :
 
 ```bash
-php -S localhost:8000 examples/bonjour.php   # des routes écrites comme des fonctions
-php -S localhost:8000 examples/carnet.php    # un contrôleur, un service injecté, des routes en attributs, un middleware
+php -S localhost:8000 examples/bonjour.php        # des routes écrites comme des fonctions
+php -S localhost:8000 examples/carnet/index.php   # contrôleur, service injecté, routes en attributs, middleware, pages en Kioo
 ```
 
 ## Principes
@@ -65,7 +65,20 @@ Les décisions d'architecture sont consignées dans [`docs/decisions/`](docs/dec
 
 <img src="docs/brand/kioo-mark.svg" alt="" width="36" height="36" align="left">
 
-Kioo (« vitre » en swahili) est le langage de templates de Wazi : une page HTML ordinaire, avec quelques attributs en plus. Il est en cours d'écriture.
+Kioo (« vitre » en swahili) est le langage de templates de Wazi : une page HTML ordinaire, avec quelques attributs en plus.
+
+```html
+<k:layout name="base">
+
+<ul>
+    <li k:for="note in notes" class="{note.importante ? 'importante' : ''}">
+        <a href="/notes/{note.id}">{note.texte}</a>
+    </li>
+    <li k:else>Aucune note pour l'instant.</li>
+</ul>
+```
+
+Tout ce qui est affiché est échappé selon l'endroit où il se trouve.
 
 ## Sécurité
 

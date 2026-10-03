@@ -1,0 +1,5 @@
+<k:layout name="base">
+<k:block name="titre">Page privée</k:block>
+
+<h1>Page privée</h1>
+<p>Vous avez la clé : {notes | length} notes à lire.</p>

@@ -22,7 +22,7 @@ namespace Wazi\View;
 final class Escaper
 {
     /** Les attributs dont la valeur est une adresse que le navigateur peut ouvrir ou charger. */
-    private const array URL_ATTRIBUTES = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'background', 'ping', 'manifest', 'data', 'xlink:href'];
+    private const array URL_ATTRIBUTES = ['href', 'src', 'action', 'formaction', 'poster', 'cite', 'background', 'ping', 'manifest', 'data', 'xlink:href', 'srcset', 'imagesrcset'];
 
     /** Les seuls protocoles acceptés dans une adresse remplie par une valeur. */
     private const array SAFE_SCHEMES = ['http', 'https', 'mailto', 'tel'];

@@ -10,6 +10,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Wazi\Http\CspNonce;
 use Wazi\Http\Exception\InvalidMessageException;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
@@ -148,6 +149,54 @@ final class SecurityHeadersTest extends TestCase
             self::assertStringContainsString('https://cdn.jsdelivr.net', $exception->getMessage());
             self::assertStringNotContainsString("\n", $exception->getMessage());
         }
+    }
+
+    // --- Jeton des scripts -------------------------------------------------
+
+    public function testTheNonceIsAddedToTheScriptDirectiveOnly(): void
+    {
+        $nonce = new CspNonce();
+        $middleware = new SecurityHeaders(scripts: ['https://cdn.jsdelivr.net'])->withNonce($nonce);
+
+        $directives = self::directives($this->process($middleware, new Response())->getHeaderLine('Content-Security-Policy'));
+        $defaults = self::directives(SecurityHeaders::DEFAULT_CONTENT_SECURITY_POLICY);
+
+        self::assertSame("'self' https://cdn.jsdelivr.net 'nonce-" . $nonce->value . "'", $directives['script-src']);
+
+        unset($directives['script-src'], $defaults['script-src']);
+
+        self::assertSame($defaults, $directives);
+    }
+
+    public function testTheNonceNeverAllowsInlineScriptsInGeneral(): void
+    {
+        $policy = $this->process(new SecurityHeaders()->withNonce(new CspNonce()), new Response())->getHeaderLine('Content-Security-Policy');
+
+        self::assertStringNotContainsString("script-src 'self' 'unsafe-inline'", $policy);
+        self::assertStringNotContainsString('unsafe-eval', $policy);
+        self::assertSame(1, substr_count($policy, 'unsafe-inline'), 'Toujours réservé aux styles.');
+    }
+
+    /**
+     * Une politique écrite en entier par le développeur lui appartient : le
+     * noyau n'y ajoute rien.
+     */
+    public function testACustomPolicyIsNotTouchedByTheNonce(): void
+    {
+        $custom = new SecurityHeaders(contentSecurityPolicy: "default-src 'none'")->withNonce(new CspNonce());
+        $none = new SecurityHeaders(contentSecurityPolicy: SecurityHeaders::WITHOUT_POLICY)->withNonce(new CspNonce());
+
+        self::assertSame("default-src 'none'", $this->process($custom, new Response())->getHeaderLine('Content-Security-Policy'));
+        self::assertFalse($this->process($none, new Response())->hasHeader('Content-Security-Policy'));
+    }
+
+    public function testWithNonceLeavesTheOriginalUntouched(): void
+    {
+        $original = new SecurityHeaders();
+        $withNonce = $original->withNonce(new CspNonce());
+
+        self::assertNotSame($original, $withNonce);
+        self::assertSame(SecurityHeaders::DEFAULT_CONTENT_SECURITY_POLICY, $this->process($original, new Response())->getHeaderLine('Content-Security-Policy'));
     }
 
     // --- Politique écrite à la main ----------------------------------------

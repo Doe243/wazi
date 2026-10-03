@@ -8,6 +8,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Wazi\Http\CspNonce;
 use Wazi\Http\Exception\InvalidMessageException;
 use Wazi\Http\Exception\InvalidUriException;
 use Wazi\Http\Response;
@@ -46,10 +47,14 @@ use Wazi\Middleware\Exception\InvalidSecurityPolicyException;
  *
  *     new Kernel(securityHeaders: new SecurityHeaders(scripts: ['https://cdn.jsdelivr.net']));
  *
- * ⚠ Les scripts écrits dans la page (<script>...</script>, onclick="...")
- * restent refusés : c'est exactement la forme que prend une attaque. Mettez
- * votre script dans un fichier .js de votre site. Si un script ne s'exécute
- * pas, la console du navigateur (F12) dit ce qui a été bloqué.
+ * Et les scripts écrits dans la page ? C'est la forme que prend une attaque,
+ * donc ils sont refusés... sauf ceux de VOS templates Kioo : chaque balise
+ * <script> d'un template reçoit un jeton (voir CspNonce) que la politique
+ * autorise. Vous n'avez rien à faire.
+ *
+ * ⚠ Restent refusés : les attributs d'événement (onclick="..."), et un
+ * <script> écrit dans une chaîne PHP sans passer par un template. Si un script
+ * ne s'exécute pas, la console du navigateur (F12) dit ce qui a été bloqué.
  *
  * Un en-tête déjà posé par votre contrôleur n'est jamais remplacé : c'est la
  * façon de faire une exception pour une seule page.
@@ -75,14 +80,18 @@ final readonly class SecurityHeaders implements MiddlewareInterface
     private array $headers;
 
     /**
-     * @param list<string> $scripts               les sites dont vos pages peuvent charger du JavaScript, par exemple 'https://cdn.jsdelivr.net'
-     * @param string|null  $contentSecurityPolicy pour écrire toute la politique vous-même ; self::WITHOUT_POLICY pour n'en envoyer aucune
+     * @param list<string>  $scripts               les sites dont vos pages peuvent charger du JavaScript, par exemple 'https://cdn.jsdelivr.net'
+     * @param string|null   $contentSecurityPolicy pour écrire toute la politique vous-même ; self::WITHOUT_POLICY pour n'en envoyer aucune
+     * @param CspNonce|null $nonce                 le jeton qui autorise les scripts écrits dans vos templates ; le noyau le fournit lui-même
      *
      * @throws InvalidSecurityPolicyException si une source de scripts est refusée, ou si les deux arguments sont donnés ensemble
      * @throws InvalidMessageException        si la politique contient un caractère interdit dans un en-tête
      */
-    public function __construct(array $scripts = [], ?string $contentSecurityPolicy = null)
-    {
+    public function __construct(
+        private array $scripts = [],
+        private ?string $contentSecurityPolicy = null,
+        ?CspNonce $nonce = null,
+    ) {
         if ($scripts !== [] && $contentSecurityPolicy !== null) {
             throw InvalidSecurityPolicyException::scriptsWithCustomPolicy();
         }
@@ -93,7 +102,7 @@ final readonly class SecurityHeaders implements MiddlewareInterface
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
         ];
 
-        $policy = $contentSecurityPolicy ?? self::policyAllowing($scripts);
+        $policy = $contentSecurityPolicy ?? self::policyAllowing($scripts, $nonce);
 
         if ($policy !== self::WITHOUT_POLICY) {
             $headers['Content-Security-Policy'] = $policy;
@@ -105,6 +114,17 @@ final readonly class SecurityHeaders implements MiddlewareInterface
             static fn(array $values): string => implode(', ', $values),
             new Response(200, $headers)->getHeaders(),
         );
+    }
+
+    /**
+     * Les mêmes en-têtes, avec le jeton des scripts dans la politique.
+     *
+     * Si vous avez écrit toute la politique vous-même, elle n'est pas touchée :
+     * c'est à vous d'y placer 'nonce-…' si vous en voulez un.
+     */
+    public function withNonce(CspNonce $nonce): self
+    {
+        return new self($this->scripts, $this->contentSecurityPolicy, $nonce);
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -127,7 +147,7 @@ final readonly class SecurityHeaders implements MiddlewareInterface
     /**
      * @param list<string> $scripts
      */
-    private static function policyAllowing(array $scripts): string
+    private static function policyAllowing(array $scripts, ?CspNonce $nonce): string
     {
         $sources = '';
 
@@ -139,6 +159,11 @@ final readonly class SecurityHeaders implements MiddlewareInterface
             }
 
             $sources .= ' ' . $source;
+        }
+
+        // Le jeton autorise les balises <script> qui le portent : celles de vos templates.
+        if ($nonce !== null) {
+            $sources .= " 'nonce-" . $nonce->value . "'";
         }
 
         return self::POLICY_UP_TO_SCRIPTS . $sources . self::POLICY_AFTER_SCRIPTS;

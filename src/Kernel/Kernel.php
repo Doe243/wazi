@@ -10,6 +10,7 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
 use Wazi\Errors\ErrorHandler;
+use Wazi\Http\CspNonce;
 use Wazi\Http\Exception\EmitterException;
 use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Pipeline;
@@ -17,6 +18,7 @@ use Wazi\Http\ResponseEmitter;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Middleware\SecurityHeaders;
 use Wazi\Routing\Router;
+use Wazi\View\Kioo;
 
 /**
  * Le noyau : il assemble les composants de Wazi et fait faire à une requête
@@ -79,6 +81,7 @@ final readonly class Kernel implements RequestHandlerInterface
      * @param Container               $container       là où vous expliquez comment fabriquer vos services : $app->container->set(...)
      * @param array<array-key, mixed> $middlewares     vos middlewares (objets, ou noms de classes), du plus extérieur au plus intérieur
      * @param SecurityHeaders|null    $securityHeaders les en-têtes de sécurité, placés avant vos middlewares ; null pour les retirer
+     * @param string|null             $views           le dossier de vos templates Kioo : vos contrôleurs peuvent alors demander un Kioo dans leur constructeur
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
@@ -91,8 +94,19 @@ final readonly class Kernel implements RequestHandlerInterface
         array $middlewares = [],
         ?SecurityHeaders $securityHeaders = new SecurityHeaders(),
         public Container $container = new Container(),
+        ?string $views = null,
     ) {
         $this->errorHandler = $errorHandler ?? new ErrorHandler($development);
+
+        // Un seul jeton pour la requête, partagé par les deux qui en ont besoin :
+        // SecurityHeaders l'annonce dans l'en-tête, Kioo le pose sur les <script>.
+        $nonce = new CspNonce();
+        $securityHeaders = $securityHeaders?->withNonce($nonce);
+        $this->container->set(CspNonce::class, static fn(): CspNonce => $nonce);
+
+        if ($views !== null) {
+            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce));
+        }
 
         // Le routeur et le noyau partagent le même conteneur : un service
         // n'existe qu'en un exemplaire dans toute l'application.

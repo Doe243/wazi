@@ -38,6 +38,7 @@ final class FiltersTest extends TestCase
         yield 'first d\'un tableau à clés' => ['first', [['x' => 1, 'y' => 2]], 1];
         yield 'first d\'une liste vide' => ['first', [[]], null];
         yield 'last d\'une liste vide' => ['last', [[]], null];
+        yield 'json d\'une liste' => ['json', [[1, 'été', true, null]], '[1,"été",true,null]'];
     }
 
     /**
@@ -88,6 +89,22 @@ final class FiltersTest extends TestCase
     }
 
     /**
+     * Sécurité : dans le JSON produit, les caractères qui ont un sens en HTML
+     * sont écrits sous forme de codes. Recopié n'importe où dans une page, ce
+     * texte ne peut fermer ni une balise ni un attribut.
+     */
+    public function testJsonNeverContainsCharactersThatMeanSomethingInHtml(): void
+    {
+        $value = '<a href="x">&\'</a>';
+
+        $json = Filters::json($value);
+
+        self::assertDoesNotMatchRegularExpression('/[<>&\']/', $json);
+        self::assertSame(2, substr_count($json, '"'), 'Seuls les deux guillemets qui entourent le texte.');
+        self::assertSame($value, json_decode($json, flags: JSON_THROW_ON_ERROR));
+    }
+
+    /**
      * Sécurité : la liste des filtres est fermée. Aucun ne porte le nom d'une
      * fonction de PHP capable de lire un fichier ou d'exécuter une commande.
      */
@@ -95,6 +112,6 @@ final class FiltersTest extends TestCase
     {
         $names = array_keys(Filters::defaults());
 
-        self::assertSame(['upper', 'lower', 'capitalize', 'trim', 'length', 'number', 'date', 'join', 'first', 'last'], $names);
+        self::assertSame(['upper', 'lower', 'capitalize', 'trim', 'length', 'number', 'date', 'join', 'first', 'last', 'json'], $names);
     }
 }

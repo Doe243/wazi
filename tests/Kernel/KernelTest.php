@@ -10,6 +10,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Errors\ErrorHandler;
+use Wazi\Http\CspNonce;
 use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Response;
 use Wazi\Http\ServerRequest;
@@ -22,6 +23,7 @@ use Wazi\Tests\Http\Fixtures\FakeSapi;
 use Wazi\Tests\Routing\Fixtures\ArticleController;
 use Wazi\Tests\Routing\Fixtures\Greeter;
 use Wazi\Tests\Routing\Fixtures\RequireToken;
+use Wazi\View\Kioo;
 
 require_once __DIR__ . '/../Http/Fixtures/sapi_functions.php';
 
@@ -143,7 +145,87 @@ final class KernelTest extends TestCase
 
         self::assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         self::assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
-        self::assertSame(SecurityHeaders::DEFAULT_CONTENT_SECURITY_POLICY, $response->getHeaderLine('Content-Security-Policy'));
+        self::assertStringStartsWith("default-src 'self'; script-src 'self' 'nonce-", $response->getHeaderLine('Content-Security-Policy'));
+    }
+
+    // --- Kioo --------------------------------------------------------------
+
+    public function testAControllerCanAskForKiooWhenTheKernelKnowsTheViewsDirectory(): void
+    {
+        $views = $this->viewsDirectory(['accueil' => '<h1>{titre}</h1><script>a();</script>']);
+
+        try {
+            $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), views: $views);
+            $app->router->get('/', static fn(): ResponseInterface => $app->container->get(Kioo::class)->page('accueil', ['titre' => 'Bonjour <Kioo>']));
+
+            $response = $app->handle(new ServerRequest('GET', '/'));
+        } finally {
+            $this->removeViewsDirectory($views);
+        }
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        self::assertStringContainsString('<h1>Bonjour &lt;Kioo&gt;</h1>', (string) $response->getBody());
+    }
+
+    /**
+     * Le jeton annoncé dans l'en-tête est celui que portent les balises
+     * <script> de la page : sans cela, le navigateur les refuserait.
+     */
+    public function testTheNonceOfTheHeaderIsTheOneOnTheScripts(): void
+    {
+        $views = $this->viewsDirectory(['accueil' => '<script>a();</script>']);
+
+        try {
+            $app = new Kernel(errorHandler: new ErrorHandler(false, $this->log), views: $views);
+            $app->router->get('/', static fn(): ResponseInterface => $app->container->get(Kioo::class)->page('accueil'));
+
+            $response = $app->handle(new ServerRequest('GET', '/'));
+        } finally {
+            $this->removeViewsDirectory($views);
+        }
+
+        self::assertSame(1, preg_match("/'nonce-([A-Za-z0-9_-]+)'/", $response->getHeaderLine('Content-Security-Policy'), $match));
+        self::assertSame('<script nonce="' . ($match[1] ?? '') . '">a();</script>', (string) $response->getBody());
+    }
+
+    public function testACustomSecurityHeadersObjectAlsoReceivesTheNonce(): void
+    {
+        $app = new Kernel(securityHeaders: new SecurityHeaders(scripts: ['https://cdn.jsdelivr.net']));
+        $app->router->get('/', static fn(): ResponseInterface => new Response());
+
+        $policy = $app->handle(new ServerRequest('GET', '/'))->getHeaderLine('Content-Security-Policy');
+
+        self::assertStringContainsString("script-src 'self' https://cdn.jsdelivr.net 'nonce-", $policy);
+        self::assertStringContainsString($app->container->get(CspNonce::class)->value, $policy);
+    }
+
+    public function testAnErrorInATemplateBecomesAnErrorPageWithTheLine(): void
+    {
+        $views = $this->viewsDirectory(['accueil' => "<h1>Titre</h1>\n<p>{inconnue}</p>"]);
+
+        try {
+            $app = new Kernel(errorHandler: new ErrorHandler(true, $this->log), views: $views);
+            $app->router->get('/', static fn(): ResponseInterface => $app->container->get(Kioo::class)->page('accueil'));
+
+            $response = $app->handle(new ServerRequest('GET', '/'));
+        } finally {
+            $this->removeViewsDirectory($views);
+        }
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString('Dans le template « accueil », ligne 2', (string) $response->getBody());
+    }
+
+    public function testWithoutViewsDirectoryKiooCannotReadFiles(): void
+    {
+        $app = $this->kernel(development: true);
+        $app->router->get('/', static fn(): ResponseInterface => $app->container->get(Kioo::class)->page('accueil'));
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString('pas de dossier de vues', (string) $response->getBody());
     }
 
     /**
@@ -429,6 +511,32 @@ final class KernelTest extends TestCase
     }
 
     // --- Outils ------------------------------------------------------------
+
+    /**
+     * Crée un dossier de vues temporaire : nom du template => texte.
+     *
+     * @param array<string, string> $templates
+     */
+    private function viewsDirectory(array $templates): string
+    {
+        $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'wazi-' . bin2hex(random_bytes(8));
+        mkdir($directory);
+
+        foreach ($templates as $name => $source) {
+            file_put_contents($directory . DIRECTORY_SEPARATOR . $name . '.kioo', $source);
+        }
+
+        return $directory;
+    }
+
+    private function removeViewsDirectory(string $directory): void
+    {
+        foreach (glob($directory . DIRECTORY_SEPARATOR . '*.kioo') ?: [] as $file) {
+            unlink($file);
+        }
+
+        rmdir($directory);
+    }
 
     /**
      * Un middleware qui ajoute son nom à l'en-tête X-Ordre de la réponse.

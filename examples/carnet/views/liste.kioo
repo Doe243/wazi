@@ -1,0 +1,29 @@
+<k:layout name="base">
+<k:block name="titre">Mon carnet</k:block>
+
+<h1>Mon carnet</h1>
+
+<ul class="notes">
+    <li k:for="note in notes" class="{note.importante ? 'importante' : ''}">
+        <a href="/notes/{note.id}">{note.texte}</a>
+        <span k:if="note.importante" class="pastille">important</span>
+    </li>
+    <li k:else>Aucune note pour l'instant.</li>
+</ul>
+
+<p id="compteur"></p>
+
+<p><a href="/prive">La page privée, sans la clé (403)</a></p>
+<p><a href="/prive?cle=wazi">La page privée, avec la clé</a></p>
+<p><a href="/notes/99">Une note qui n'existe pas (404)</a></p>
+
+<!-- Les données passent au JavaScript sans jamais être écrites dans du code. -->
+<k:json id="donnees" value="{notes}">
+
+<!-- Ce script est écrit dans un template : Kioo lui pose le jeton qui l'autorise. -->
+<script>
+    const notes = JSON.parse(document.getElementById('donnees').textContent);
+    const importantes = notes.filter((note) => note.importante).length;
+    document.getElementById('compteur').textContent =
+        notes.length + ' notes, dont ' + importantes + ' importante(s). (Ce texte est écrit par un script.)';
+</script>
