@@ -16,7 +16,11 @@ use Wazi\Http\Exception\InvalidMiddlewareException;
 use Wazi\Http\Pipeline;
 use Wazi\Http\ResponseEmitter;
 use Wazi\Http\ServerRequestCreator;
+use Wazi\Http\Session;
+use Wazi\Middleware\CsrfProtection;
+use Wazi\Middleware\FileSessionStore;
 use Wazi\Middleware\SecurityHeaders;
+use Wazi\Middleware\SessionMiddleware;
 use Wazi\Routing\Router;
 use Wazi\View\Kioo;
 
@@ -82,6 +86,7 @@ final readonly class Kernel implements RequestHandlerInterface
      * @param array<array-key, mixed> $middlewares     vos middlewares (objets, ou noms de classes), du plus extérieur au plus intérieur
      * @param SecurityHeaders|null    $securityHeaders les en-têtes de sécurité, placés avant vos middlewares ; null pour les retirer
      * @param string|null             $views           le dossier de vos templates Kioo : vos contrôleurs peuvent alors demander un Kioo dans leur constructeur
+     * @param string|null             $sessions        le dossier où ranger les sessions (hors du dossier public) : active les sessions et la protection des formulaires
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
@@ -95,6 +100,7 @@ final readonly class Kernel implements RequestHandlerInterface
         ?SecurityHeaders $securityHeaders = new SecurityHeaders(),
         public Container $container = new Container(),
         ?string $views = null,
+        ?string $sessions = null,
     ) {
         $this->errorHandler = $errorHandler ?? new ErrorHandler($development);
 
@@ -104,18 +110,31 @@ final readonly class Kernel implements RequestHandlerInterface
         $securityHeaders = $securityHeaders?->withNonce($nonce);
         $this->container->set(CspNonce::class, static fn(): CspNonce => $nonce);
 
+        // Les sessions, et avec elles la protection des formulaires (ADR-021).
+        // Une seule Session pour la requête : celle que le middleware remplit
+        // est celle que reçoivent vos contrôleurs et vos templates.
+        $session = $sessions !== null ? new Session() : null;
+        $ahead = [];
+        $forEveryRoute = [];
+
+        if ($session !== null && $sessions !== null) {
+            $this->container->set(Session::class, static fn(): Session => $session);
+            $ahead[] = new SessionMiddleware($session, new FileSessionStore($sessions));
+            $forEveryRoute[] = new CsrfProtection($session);
+        }
+
         if ($views !== null) {
-            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce));
+            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce, $session));
         }
 
         // Le routeur et le noyau partagent le même conteneur : un service
         // n'existe qu'en un exemplaire dans toute l'application.
-        $this->router = $router ?? new Router($this->container);
+        $this->router = $router ?? new Router($this->container, $forEveryRoute);
 
         // SecurityHeaders est le plus à l'extérieur : il voit passer la
         // réponse en dernier, après tous vos middlewares.
         $this->middlewares = Pipeline::declared(
-            $securityHeaders !== null ? [$securityHeaders, ...array_values($middlewares)] : $middlewares,
+            [...($securityHeaders !== null ? [$securityHeaders] : []), ...$ahead, ...array_values($middlewares)],
         );
     }
 
