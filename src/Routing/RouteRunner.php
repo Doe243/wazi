@@ -77,9 +77,14 @@ final readonly class RouteRunner implements RequestHandlerInterface
             throw RoutingException::controllerCannotBeBuilt($this->route->path, $class, $exception);
         }
 
-        // method_exists() écarte les méthodes « magiques » (__call) ; is_callable()
-        // écarte les méthodes privées ou protégées.
-        if (!is_object($controller) || !method_exists($controller, $method) || !is_callable([$controller, $method])) {
+        // method_exists() écarte les méthodes inventées par __call. La
+        // déclaration de la méthode (ReflectionMethod) dit si elle est publique :
+        // is_callable() ne suffit pas, car il répond « oui » pour une méthode
+        // privée dès que la classe possède un __call.
+        if (!is_object($controller)
+            || !method_exists($controller, $method)
+            || !new \ReflectionMethod($controller, $method)->isPublic()
+        ) {
             throw RoutingException::controllerMethodNotFound($this->route->path, $class, $method);
         }
 
