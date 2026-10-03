@@ -18,12 +18,16 @@ use Wazi\Http\Exception\SessionException;
  *     $session->regenerate();             // à faire juste après une connexion réussie
  *     $session->clear();                  // tout oublier : déconnexion
  *
+ *     $session->flash('succes', 'Note ajoutée.');   // un message pour la page suivante
+ *     $session->takeFlash('succes');                // le lire, une seule fois
+ *     $session->remember(30);                       // « se souvenir de moi » pendant 30 jours
+ *
  * Un contrôleur demande la session dans son constructeur, comme tout service.
  *
  * Cet objet ne lit ni n'écrit rien lui-même : c'est le middleware des sessions
  * qui le remplit au début de la requête et l'enregistre à la fin.
  *
- * Sécurité (ADR-006 et ADR-021) :
+ * Sécurité (ADR-006, ADR-021 et ADR-024) :
  *   - l'identifiant fait 256 bits de hasard : impossible à deviner ;
  *   - regenerate() change l'identifiant. Appelez-le après une connexion : si un
  *     attaquant avait réussi à imposer son identifiant au visiteur avant qu'il
@@ -35,6 +39,15 @@ final class Session
 {
     /** 64 chiffres hexadécimaux : 32 octets au hasard. */
     private const string ID = '/^[a-f0-9]{64}$/D';
+
+    /** La clé où sont rangés les messages laissés par flash(). */
+    private const string FLASH = '_flash';
+
+    /** La clé où est rangée la durée demandée par remember(), en secondes. */
+    private const string REMEMBER = '_remember';
+
+    /** Au-delà d'un an, une session oubliée sur un ordinateur partagé est un risque sans contrepartie. */
+    private const int MAX_REMEMBER_DAYS = 365;
 
     private ?string $id = null;
 
@@ -125,6 +138,87 @@ final class Session
         $this->regenerate();
     }
 
+    /**
+     * Laisse un message pour la page suivante.
+     *
+     * Après un formulaire réussi, on redirige le visiteur (pour qu'un
+     * rechargement ne renvoie pas le formulaire). Le message « Note ajoutée »
+     * doit donc survivre à la redirection, puis disparaître :
+     *
+     *     $session->flash('succes', 'Note ajoutée.');
+     *     return new Response(303, ['Location' => '/notes']);
+     *
+     * @throws SessionException si la valeur n'est pas une valeur simple
+     */
+    public function flash(string $key, mixed $value): void
+    {
+        $this->assertStarted();
+
+        if (!self::isStorable($value)) {
+            throw SessionException::unsupportedValue($key, get_debug_type($value));
+        }
+
+        $messages = $this->flashMessages();
+        $messages[$key] = $value;
+
+        $this->data[self::FLASH] = $messages;
+        $this->changed = true;
+    }
+
+    /**
+     * Lit un message laissé par flash(), et l'efface : il ne sera affiché qu'une fois.
+     *
+     * Tant qu'aucune page ne le lit, le message attend.
+     */
+    public function takeFlash(string $key, mixed $default = null): mixed
+    {
+        $this->assertStarted();
+
+        $messages = $this->flashMessages();
+
+        if (!array_key_exists($key, $messages)) {
+            return $default;
+        }
+
+        $value = $messages[$key];
+        unset($messages[$key]);
+
+        if ($messages === []) {
+            unset($this->data[self::FLASH]);
+        } else {
+            $this->data[self::FLASH] = $messages;
+        }
+
+        $this->changed = true;
+
+        return $value;
+    }
+
+    /**
+     * « Se souvenir de moi » : la session survit à la fermeture du navigateur,
+     * et dure $days jours après la dernière visite.
+     *
+     * À appeler à la connexion, seulement si le visiteur a coché la case.
+     *
+     * Sécurité (ADR-024) : sans cet appel, la session disparaît quand le
+     * navigateur se ferme, ou après deux heures sans visite. Une session
+     * longue reste ouverte sur l'ordinateur où elle a été créée : ne
+     * l'activez jamais sans que le visiteur l'ait demandé.
+     *
+     * @throws SessionException si la durée n'est pas comprise entre 1 et 365 jours
+     */
+    public function remember(int $days = 30): void
+    {
+        $this->assertStarted();
+
+        if ($days < 1 || $days > self::MAX_REMEMBER_DAYS) {
+            throw SessionException::invalidRememberDuration($days, self::MAX_REMEMBER_DAYS);
+        }
+
+        $this->data[self::REMEMBER] = $days * 86400;
+        $this->changed = true;
+    }
+
     // ------------------------------------------------------------------
     // Ce dont le middleware des sessions se sert
     // ------------------------------------------------------------------
@@ -182,6 +276,19 @@ final class Session
     }
 
     /**
+     * La durée demandée par remember(), en secondes, ou null pour une session ordinaire.
+     *
+     * @internal lu par le middleware des sessions
+     */
+    public function lifetime(): ?int
+    {
+        $lifetime = $this->data[self::REMEMBER] ?? null;
+
+        // La valeur est relue d'un fichier : hors des bornes, elle est ignorée.
+        return is_int($lifetime) && $lifetime >= 86400 && $lifetime <= self::MAX_REMEMBER_DAYS * 86400 ? $lifetime : null;
+    }
+
+    /**
      * Vrai si ce texte a la forme d'un identifiant de session.
      *
      * Sécurité : un identifiant reçu d'un cookie sert à nommer un fichier. Il
@@ -206,6 +313,16 @@ final class Session
         if ($this->id === null) {
             throw SessionException::notStarted();
         }
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function flashMessages(): array
+    {
+        $messages = $this->data[self::FLASH] ?? [];
+
+        return is_array($messages) ? $messages : [];
     }
 
     /**

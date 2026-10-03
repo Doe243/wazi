@@ -18,6 +18,17 @@ final class SessionStoreException extends \RuntimeException
         );
     }
 
+    public static function lockTimeout(float $seconds): self
+    {
+        return new self(sprintf(
+            'La session de ce visiteur est restée réservée par une autre requête pendant plus de %s seconde(s).'
+            . ' Deux requêtes d\'un même visiteur sont traitées l\'une après l\'autre, pour que l\'une n\'efface pas'
+            . ' ce que l\'autre a noté. Cherchez la requête lente (un long calcul, un appel à un autre service) :'
+            . ' c\'est elle qui fait attendre les autres.',
+            rtrim(rtrim(number_format($seconds, 2, ',', ''), '0'), ','),
+        ));
+    }
+
     public static function notWritable(): self
     {
         return new self(
