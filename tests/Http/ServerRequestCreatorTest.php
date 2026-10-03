@@ -155,7 +155,7 @@ final class ServerRequestCreatorTest extends TestCase
             new ServerRequestCreator()->fromArrays($server);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(400, $exception->statusCode);
+            self::assertSame(400, $exception->getStatusCode());
             self::assertInstanceOf(\InvalidArgumentException::class, $exception->getPrevious());
             self::assertStringNotContainsString("\n", $exception->getMessage());
             self::assertStringNotContainsString('piege', $exception->getMessage());
@@ -240,7 +240,7 @@ final class ServerRequestCreatorTest extends TestCase
             new ServerRequestCreator()->fromArrays(['HTTP_HOST' => $host, 'REQUEST_URI' => '/']);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(400, $exception->statusCode);
+            self::assertSame(400, $exception->getStatusCode());
             self::assertStringNotContainsString("\n", $exception->getMessage());
         }
     }
@@ -281,7 +281,7 @@ final class ServerRequestCreatorTest extends TestCase
             $creator->fromArrays(['HTTP_HOST' => $host, 'REQUEST_URI' => '/']);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(400, $exception->statusCode);
+            self::assertSame(400, $exception->getStatusCode());
             self::assertStringContainsString('trustedHosts', $exception->getMessage());
         }
     }
@@ -350,7 +350,7 @@ final class ServerRequestCreatorTest extends TestCase
             new ServerRequestCreator(maxBodySize: 100)->fromArrays(['CONTENT_LENGTH' => $length], [], [], [], [], $body);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(413, $exception->statusCode);
+            self::assertSame(413, $exception->getStatusCode());
             self::assertStringContainsString('maxBodySize', $exception->getMessage());
             self::assertSame(2, $body->tell(), "Le corps n'a pas été lu.");
         }
@@ -390,7 +390,7 @@ final class ServerRequestCreatorTest extends TestCase
             new ServerRequestCreator()->fromArrays(['CONTENT_LENGTH' => $length]);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(400, $exception->statusCode);
+            self::assertSame(400, $exception->getStatusCode());
         }
     }
 
@@ -538,7 +538,7 @@ final class ServerRequestCreatorTest extends TestCase
             new ServerRequestCreator()->fromArrays([], [], [], [], $files);
             self::fail('Une exception était attendue.');
         } catch (RequestRejectedException $exception) {
-            self::assertSame(400, $exception->statusCode);
+            self::assertSame(400, $exception->getStatusCode());
             self::assertStringNotContainsString('passwd', $exception->getMessage());
             self::assertStringNotContainsString('piege', $exception->getMessage());
         }
