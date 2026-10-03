@@ -28,7 +28,8 @@ use Wazi\Config\Exception\ConfigException;
  * Sécurité :
  *   - une valeur est un TEXTE. Rien n'y est jamais exécuté ni remplacé : ni
  *     « ${AUTRE} », ni « $(commande) ». Ces écritures sont gardées telles quelles ;
- *   - une ligne mal écrite est signalée par son numéro, jamais par son contenu.
+ *   - une ligne mal écrite est signalée par son numéro, jamais par son contenu ;
+ *   - un nom ne peut pas commencer par « HTTP_ » (voir RESERVED_PREFIX).
  */
 final class EnvFile
 {
@@ -36,6 +37,13 @@ final class EnvFile
     public const int MAX_SIZE = 262_144;
 
     public const string KEY = '/^[A-Z][A-Z0-9_]*$/D';
+
+    /**
+     * Sur certains serveurs, chaque en-tête de la requête devient une variable
+     * d'environnement « HTTP_... » : son contenu est choisi par le visiteur.
+     * Aucun réglage ne peut donc porter un nom qui commence ainsi (ADR-018).
+     */
+    public const string RESERVED_PREFIX = 'HTTP_';
 
     private const string LINE = '/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/Ds';
 
@@ -80,6 +88,10 @@ final class EnvFile
 
             if (preg_match(self::KEY, $key) !== 1) {
                 throw ConfigException::invalidLine($file, $number, 'le nom doit être en majuscules (lettres, chiffres et « _ »).');
+            }
+
+            if (str_starts_with($key, self::RESERVED_PREFIX)) {
+                throw ConfigException::invalidLine($file, $number, 'un nom ne peut pas commencer par « HTTP_ » : ces noms sont réservés aux en-têtes de la requête, qu\'un visiteur peut choisir.');
             }
 
             if (isset($definedAt[$key])) {

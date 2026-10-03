@@ -250,7 +250,7 @@ final class ConfigTest extends TestCase
     public function testAMissingFileIsMentionedWhenARequiredKeyIsAbsent(): void
     {
         $this->expectException(ConfigException::class);
-        $this->expectExceptionMessage('n\'existe pas : créez-le');
+        $this->expectExceptionMessage('.env n\'existe pas');
 
         Config::fromEnvFile($this->directory . '/.env')->string('DATABASE_PASSWORD');
     }
@@ -367,17 +367,138 @@ final class ConfigTest extends TestCase
         self::assertArrayNotHasKey('WAZI_TEST_SECRET', $_SERVER);
     }
 
-    public function testTheProcessEnvironmentIsNotReadEither(): void
-    {
-        putenv('WAZI_TEST_FROM_ENV=valeur-de-l-environnement');
+    // --- Variables d'environnement du serveur ------------------------------
 
+    /**
+     * C'est ainsi qu'on configure un site hébergé dans un conteneur ou sur
+     * une plateforme : il n'y a aucun fichier .env en ligne.
+     */
+    public function testAServerEnvironmentVariableIsUsedWhenThereIsNoFile(): void
+    {
+        $config = $this->withEnvironment(
+            ['WAZI_TEST_NAME' => 'Site en ligne', 'WAZI_TEST_DEBUG' => 'false', 'WAZI_TEST_PORT' => '3306', 'WAZI_TEST_HOSTS' => 'a.com,b.com'],
+            fn(): Config => Config::fromEnvFile($this->directory . '/.env'),
+            static function (Config $config): void {
+                self::assertSame('Site en ligne', $config->string('WAZI_TEST_NAME'));
+                self::assertFalse($config->bool('WAZI_TEST_DEBUG', true));
+                self::assertSame(3306, $config->int('WAZI_TEST_PORT'));
+                self::assertSame(['a.com', 'b.com'], $config->list('WAZI_TEST_HOSTS'));
+                self::assertTrue($config->has('WAZI_TEST_NAME'));
+            },
+        );
+
+        self::assertFalse($config->has('WAZI_TEST_NAME'), 'Une fois la variable retirée, la clé n\'existe plus.');
+    }
+
+    public function testAServerEnvironmentVariableWinsOverTheFile(): void
+    {
+        $file = $this->envFile("WAZI_TEST_NAME=Depuis le fichier\nWAZI_TEST_OTHER=Fichier seul\n");
+
+        $this->withEnvironment(
+            ['WAZI_TEST_NAME' => 'Depuis le serveur'],
+            static fn(): Config => Config::fromEnvFile($file),
+            static function (Config $config): void {
+                self::assertSame('Depuis le serveur', $config->string('WAZI_TEST_NAME'));
+                self::assertSame('Fichier seul', $config->string('WAZI_TEST_OTHER'));
+            },
+        );
+    }
+
+    public function testAnEmptyServerEnvironmentVariableIsStillAValue(): void
+    {
+        $file = $this->envFile('WAZI_TEST_NAME=Depuis le fichier');
+
+        $this->withEnvironment(
+            ['WAZI_TEST_NAME' => ''],
+            static fn(): Config => Config::fromEnvFile($file),
+            static function (Config $config): void {
+                self::assertSame('', $config->string('WAZI_TEST_NAME', 'défaut'));
+            },
+        );
+    }
+
+    public function testAValueFromTheEnvironmentIsTypeCheckedLikeAnyOther(): void
+    {
+        $this->expectException(ConfigException::class);
+        $this->expectExceptionMessage('ni « true » ni « false »');
+
+        $this->withEnvironment(
+            ['WAZI_TEST_DEBUG' => '1'],
+            fn(): Config => Config::fromEnvFile($this->directory . '/.env'),
+            static function (Config $config): void {
+                $config->bool('WAZI_TEST_DEBUG', false);
+            },
+        );
+    }
+
+    /**
+     * Une configuration construite à la main (dans un test, par exemple) ne
+     * contient que ce qu'on lui a donné.
+     */
+    public function testAConfigurationBuiltByHandDoesNotReadTheEnvironment(): void
+    {
+        $this->withEnvironment(
+            ['WAZI_TEST_NAME' => 'Depuis le serveur'],
+            static fn(): Config => new Config(['WAZI_TEST_NAME' => 'Donnée à la main']),
+            static function (Config $config): void {
+                self::assertSame('Donnée à la main', $config->string('WAZI_TEST_NAME'));
+                self::assertFalse(new Config()->has('WAZI_TEST_NAME'));
+            },
+        );
+    }
+
+    /**
+     * Sécurité (faille dite « httpoxy ») : sur certains serveurs, l'en-tête
+     * « Proxy: pirate.com » d'un visiteur devient la variable HTTP_PROXY.
+     * Aucun réglage ne doit pouvoir se lire sous un tel nom.
+     */
+    public function testAKeyStartingWithHttpCanNeverBeRead(): void
+    {
+        $this->withEnvironment(
+            ['HTTP_PROXY' => 'pirate.com:8080', 'HTTP_X_FORWARDED_HOST' => 'pirate.com'],
+            fn(): Config => Config::fromEnvFile($this->directory . '/.env'),
+            static function (Config $config): void {
+                foreach (['HTTP_PROXY', 'HTTP_X_FORWARDED_HOST', 'HTTP_'] as $key) {
+                    try {
+                        $config->string($key, 'défaut');
+                        self::fail('Une exception était attendue pour ' . $key);
+                    } catch (ConfigException $exception) {
+                        self::assertStringContainsString('réservé', $exception->getMessage());
+                        self::assertStringNotContainsString('pirate', $exception->getMessage());
+                    }
+                }
+            },
+        );
+    }
+
+    public function testAKeyStartingWithHttpCannotBeWrittenInTheFileEither(): void
+    {
+        $this->expectException(ConfigException::class);
+        $this->expectExceptionMessage('ligne 2');
+
+        Config::fromEnvFile($this->envFile("APP_NAME=Carnet\nHTTP_PROXY=proxy.exemple.com\n"));
+    }
+
+    public function testAKeyThatOnlyContainsHttpIsFine(): void
+    {
+        $config = Config::fromEnvFile($this->envFile("APP_HTTP_TIMEOUT=30\nHTTPS_ONLY=true\n"));
+
+        self::assertSame(30, $config->int('APP_HTTP_TIMEOUT'));
+        self::assertTrue($config->bool('HTTPS_ONLY'));
+    }
+
+    public function testAMissingKeyMentionsBothSources(): void
+    {
         try {
-            self::assertFalse(new Config()->has('WAZI_TEST_FROM_ENV'));
-            self::assertFalse(new Config()->has('PATH'), 'Une variable du système ne devient pas un réglage.');
-        } finally {
-            putenv('WAZI_TEST_FROM_ENV');
+            Config::fromEnvFile($this->envFile('APP_NAME=Carnet'))->string('WAZI_TEST_ABSENT');
+            self::fail('Une exception était attendue.');
+        } catch (ConfigException $exception) {
+            self::assertStringContainsString('variable d\'environnement', $exception->getMessage());
+            self::assertStringContainsString('.env', $exception->getMessage());
         }
     }
+
+    // --- Sécurité : ne pas laisser fuir les valeurs --------------------------
 
     public function testDumpingTheConfigurationHidesItsValues(): void
     {
@@ -412,6 +533,32 @@ final class ConfigTest extends TestCase
     }
 
     // --- Outils ------------------------------------------------------------
+
+    /**
+     * Définit des variables d'environnement le temps d'une vérification,
+     * puis les retire, même si la vérification échoue.
+     *
+     * @param array<string, string>  $variables
+     * @param \Closure(): Config     $create
+     * @param \Closure(Config): void $check
+     */
+    private function withEnvironment(array $variables, \Closure $create, \Closure $check): Config
+    {
+        foreach ($variables as $name => $value) {
+            putenv($name . '=' . $value);
+        }
+
+        try {
+            $config = $create();
+            $check($config);
+        } finally {
+            foreach (array_keys($variables) as $name) {
+                putenv($name);
+            }
+        }
+
+        return $config;
+    }
 
     private function envFile(string $content, string $name = '.env'): string
     {

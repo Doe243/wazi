@@ -7,7 +7,8 @@ namespace Wazi\Config;
 use Wazi\Config\Exception\ConfigException;
 
 /**
- * Les réglages de votre application, lus dans un fichier .env.
+ * Les réglages de votre application, lus dans un fichier .env ou dans les
+ * variables d'environnement du serveur.
  *
  *     $config = Config::fromEnvFile(__DIR__ . '/../.env');
  *
@@ -24,10 +25,24 @@ use Wazi\Config\Exception\ConfigException;
  * Un fichier absent n'est pas une erreur : l'application démarre avec ses
  * valeurs par défaut. Seule une clé obligatoire manquante en est une.
  *
- * Sécurité (ADR-006 et ADR-017) :
- *   - les valeurs restent DANS cet objet. Elles ne sont jamais copiées dans
- *     $_ENV, $_SERVER ou putenv(), où phpinfo() ou un programme lancé par PHP
- *     pourraient les lire ;
+ * D'où vient une valeur ? Pour chaque clé, dans cet ordre :
+ *   1. une variable d'environnement de ce nom, si le serveur en définit une
+ *      (c'est ainsi qu'on configure un site hébergé dans un conteneur ou sur
+ *      une plateforme : il n'y a alors aucun fichier .env en ligne) ;
+ *   2. sinon, la ligne du fichier .env ;
+ *   3. sinon, la valeur par défaut donnée dans le code.
+ *
+ * ⚠ Le système définit lui-même des variables (PATH, USER, HOME, LANG...).
+ * Nommez vos clés avec un préfixe (APP_, DATABASE_, MAIL_) pour qu'aucune ne
+ * porte par hasard le nom de l'une d'elles.
+ *
+ * Sécurité (ADR-006, ADR-017 et ADR-018) :
+ *   - les valeurs du fichier restent DANS cet objet. Elles ne sont jamais
+ *     copiées dans $_ENV, $_SERVER ou putenv(), où phpinfo() ou un programme
+ *     lancé par PHP pourraient les lire : l'environnement est lu, jamais écrit ;
+ *   - une clé ne peut pas commencer par « HTTP_ » : sur certains serveurs, ces
+ *     variables sont fabriquées à partir des en-têtes de la requête, donc
+ *     choisies par le visiteur ;
  *   - un .env placé dans le dossier public du site est refusé : il serait
  *     téléchargeable par n'importe qui ;
  *   - var_dump($config) montre le nom des clés, pas leurs valeurs ;
@@ -43,19 +58,22 @@ final readonly class Config
     private const string INTEGER = '/^-?(?:0|[1-9]\d{0,17})$/D';
 
     /**
-     * @param array<string, string> $values     les réglages : nom en majuscules => texte
-     * @param string                $file       le fichier d'où ils viennent, cité dans les messages d'erreur
-     * @param bool                  $fileExists false si ce fichier n'existait pas
+     * @param array<string, string> $values          les réglages : nom en majuscules => texte
+     * @param string                $file            le fichier d'où ils viennent, cité dans les messages d'erreur
+     * @param bool                  $fileExists      false si ce fichier n'existait pas
+     * @param bool                  $readEnvironment true pour que les variables d'environnement du serveur passent avant ces réglages
      */
     public function __construct(
         #[\SensitiveParameter]
         private array $values = [],
         private string $file = '.env',
         private bool $fileExists = true,
+        private bool $readEnvironment = false,
     ) {}
 
     /**
-     * Lit un fichier .env. S'il n'existe pas, la configuration est vide.
+     * Lit un fichier .env. S'il n'existe pas, seules les variables
+     * d'environnement du serveur et les valeurs par défaut serviront.
      *
      * @param bool $unsafeAllowPublicLocation true pour accepter un .env situé dans le dossier public (dangereux, voir la classe)
      *
@@ -68,7 +86,7 @@ final readonly class Config
         }
 
         if (!file_exists($file)) {
-            return new self([], $file, false);
+            return new self([], $file, false, true);
         }
 
         if (!$unsafeAllowPublicLocation && self::isInsideDocumentRoot($file)) {
@@ -85,7 +103,7 @@ final readonly class Config
             throw ConfigException::unreadable($file);
         }
 
-        return new self(EnvFile::parse($content, $file), $file);
+        return new self(EnvFile::parse($content, $file), $file, true, true);
     }
 
     // ------------------------------------------------------------------
@@ -94,7 +112,7 @@ final readonly class Config
 
     public function has(string $key): bool
     {
-        return isset($this->values[self::validKey($key)]);
+        return $this->value($key) !== null;
     }
 
     /**
@@ -102,7 +120,7 @@ final readonly class Config
      */
     public function string(string $key, ?string $default = null): string
     {
-        return $this->values[self::validKey($key)] ?? $default ?? throw $this->missing($key);
+        return $this->value($key) ?? $default ?? throw $this->missing($key);
     }
 
     /**
@@ -110,7 +128,7 @@ final readonly class Config
      */
     public function int(string $key, ?int $default = null): int
     {
-        $value = $this->values[self::validKey($key)] ?? null;
+        $value = $this->value($key);
 
         if ($value === null) {
             return $default ?? throw $this->missing($key);
@@ -127,7 +145,7 @@ final readonly class Config
      */
     public function bool(string $key, ?bool $default = null): bool
     {
-        $value = $this->values[self::validKey($key)] ?? null;
+        $value = $this->value($key);
 
         if ($value === null) {
             return $default ?? throw $this->missing($key);
@@ -151,7 +169,7 @@ final readonly class Config
      */
     public function list(string $key, ?array $default = null): array
     {
-        $value = $this->values[self::validKey($key)] ?? null;
+        $value = $this->value($key);
 
         if ($value === null) {
             return $default ?? throw $this->missing($key);
@@ -182,9 +200,29 @@ final readonly class Config
     // Outils internes
     // ------------------------------------------------------------------
 
-    private static function validKey(string $key): string
+    /**
+     * La valeur brute d'une clé, ou null si elle n'est définie nulle part.
+     */
+    private function value(string $key): ?string
     {
-        return preg_match(EnvFile::KEY, $key) === 1 ? $key : throw ConfigException::invalidKeyName();
+        if (preg_match(EnvFile::KEY, $key) !== 1) {
+            throw ConfigException::invalidKeyName();
+        }
+
+        if (str_starts_with($key, EnvFile::RESERVED_PREFIX)) {
+            throw ConfigException::reservedKeyName($key);
+        }
+
+        if ($this->readEnvironment) {
+            // getenv() LIT l'environnement du processus. On n'y écrit jamais.
+            $fromEnvironment = getenv($key);
+
+            if ($fromEnvironment !== false) {
+                return $fromEnvironment;
+            }
+        }
+
+        return $this->values[$key] ?? null;
     }
 
     private function missing(string $key): ConfigException
