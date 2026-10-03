@@ -65,6 +65,10 @@ Les composants sont rangés en quatre couches. Une couche peut utiliser celles d
 | Fondations | `Http`, `Container`, `Config` |
 | Contrats | `Contracts` |
 
+## Documentation
+
+Le guide complet, en douze pages, de la première route à la mise en ligne : [`docs/`](docs/README.md).
+
 Les décisions d'architecture sont consignées dans [`docs/decisions/`](docs/decisions/).
 
 ## Kioo
