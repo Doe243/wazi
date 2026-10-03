@@ -9,7 +9,7 @@ return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
     ->setRules([
         '@PER-CS' => true,
-        '@PHP83Migration' => true,
+        '@PHP85Migration' => true,
         'declare_strict_types' => true,
         'final_class' => true,
         'no_unused_imports' => true,

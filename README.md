@@ -15,6 +15,7 @@ Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre
 5. Code source lisible
 6. PHP moderne uniquement (8.5+)
 7. Standards PSR respectés (PSR-7, PSR-11, PSR-15, PSR-17)
+8. Sécurité stricte, jamais pénible : défaut sûr, sortie explicite et locale
 
 ## Architecture
 
