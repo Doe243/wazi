@@ -35,6 +35,7 @@ use Wazi\View\Template\Text;
  *     <k:layout name="base">          la page se place dans base.kioo
  *     <k:block name="titre">          remplit l'emplacement « titre » de la mise en page
  *     <k:include file="pied">         écrit ici le template pied.kioo
+ *     <k:json id="d" value="{notes}"> met une valeur à la disposition du JavaScript
  *
  * Sécurité (ADR-019) :
  *   - aucune valeur n'est écrite sans échappement, sauf par le filtre
@@ -49,7 +50,14 @@ final readonly class Renderer
     /** Le nom du bloc qui reçoit tout ce qui, dans une page, n'est pas dans un <k:block>. */
     private const string CONTENT_BLOCK = 'content';
 
-    public function __construct(private Evaluator $evaluator, private TemplateLoader $loader) {}
+    /**
+     * @param string|null $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
+     */
+    public function __construct(
+        private Evaluator $evaluator,
+        private TemplateLoader $loader,
+        private ?string $scriptNonce = null,
+    ) {}
 
     /**
      * Produit la page d'un template, mise en page comprise.
@@ -119,13 +127,20 @@ final readonly class Renderer
     {
         $html = '';
 
+        // Le retour à la ligne et l'indentation qui précèdent une balise : une
+        // boucle les répète entre ses tours, pour que la page produite garde
+        // une balise par ligne.
+        $indentation = '';
+
         foreach ($nodes as $node) {
             $html .= match (true) {
                 $node instanceof Raw => $node->source,
                 $node instanceof Text => $this->renderText($node, $variables, $template),
-                $node instanceof Element => $this->renderStructure($node, $variables, $template, $blocks, $depth),
+                $node instanceof Element => $this->renderStructure($node, $variables, $template, $blocks, $depth, $indentation),
                 default => '',
             };
+
+            $indentation = $node instanceof Text ? self::trailingIndentation($node) : '';
         }
 
         return $html;
@@ -137,10 +152,10 @@ final readonly class Renderer
      * @param array<string, mixed>  $variables
      * @param array<string, string> $blocks
      */
-    private function renderStructure(Element $element, array $variables, string $template, array $blocks, int $depth): string
+    private function renderStructure(Element $element, array $variables, string $template, array $blocks, int $depth, string $indentation): string
     {
         if ($element->loop !== null) {
-            return $this->renderLoop($element, $variables, $template, $blocks, $depth);
+            return $this->renderLoop($element, $variables, $template, $blocks, $depth, $indentation);
         }
 
         if ($element->condition === null) {
@@ -166,7 +181,7 @@ final readonly class Renderer
      * @param array<string, mixed>  $variables
      * @param array<string, string> $blocks
      */
-    private function renderLoop(Element $element, array $variables, string $template, array $blocks, int $depth): string
+    private function renderLoop(Element $element, array $variables, string $template, array $blocks, int $depth, string $indentation): string
     {
         $loop = $element->loop;
 
@@ -184,8 +199,7 @@ final readonly class Renderer
             throw KiooException::at(KiooException::notIterable(get_debug_type($list)), $template, $element->line);
         }
 
-        $html = '';
-        $count = 0;
+        $turns = [];
 
         foreach ($list as $key => $item) {
             // L'élément (et sa clé) ne sont visibles que dans cette balise :
@@ -196,16 +210,15 @@ final readonly class Renderer
                 $inside[$loop->key] = $key;
             }
 
-            $html .= $this->renderElement($element, $inside, $template, $blocks, $depth);
-            $count++;
+            $turns[] = $this->renderElement($element, $inside, $template, $blocks, $depth);
         }
 
         // Liste vide : c'est la balise k:else, s'il y en a une, qui est écrite.
-        if ($count === 0 && $element->otherwise !== null) {
+        if ($turns === [] && $element->otherwise !== null) {
             return $this->renderElement($element->otherwise, $variables, $template, $blocks, $depth);
         }
 
-        return $html;
+        return implode($indentation, $turns);
     }
 
     // ------------------------------------------------------------------
@@ -236,10 +249,22 @@ final readonly class Renderer
             return '';
         }
 
+        if ($name === 'k:json') {
+            return $this->renderJson($element, $variables, $template);
+        }
+
         $html = '<' . $element->name;
 
         foreach ($element->attributes as $attribute) {
             $html .= $this->renderAttribute($attribute, $variables, $template);
+        }
+
+        // Sécurité (ADR-014) : les balises <script> écrites dans VOS templates
+        // reçoivent le jeton du jour. Le navigateur exécute les scripts qui le
+        // portent, et refuse tous les autres : un script glissé dans la page
+        // par un attaquant ne connaît pas le jeton.
+        if ($name === 'script' && $this->scriptNonce !== null && $element->staticAttribute('nonce') === null) {
+            $html .= ' nonce="' . Escaper::html($this->scriptNonce) . '"';
         }
 
         if ($element->selfClosing) {
@@ -275,6 +300,39 @@ final readonly class Renderer
         }
 
         return $this->render($this->load($file, $template, $element->line), $given, $file, $depth + 1);
+    }
+
+    /**
+     * <k:json id="donnees" value="{notes}"> : met une valeur à la disposition
+     * du JavaScript de la page, sans jamais l'écrire dans du code.
+     *
+     * La balise produite est un <script type="application/json"> : le
+     * navigateur ne l'exécute pas, il la garde comme une donnée, que votre
+     * script lit ainsi :
+     *
+     *     const notes = JSON.parse(document.getElementById('donnees').textContent);
+     *
+     * @param array<string, mixed> $variables
+     */
+    private function renderJson(Element $element, array $variables, string $template): string
+    {
+        $value = null;
+
+        foreach ($element->attributes as $attribute) {
+            if ($attribute->name === 'value') {
+                $value = $this->attributeValue($attribute, $variables, $template);
+            }
+        }
+
+        try {
+            // Filters::json() écrit < > & sous forme de codes : la valeur ne
+            // peut pas contenir « </script> » et refermer la balise.
+            $json = Filters::json($value);
+        } catch (KiooException $exception) {
+            throw KiooException::at($exception, $template, $element->line);
+        }
+
+        return '<script type="application/json" id="' . Escaper::html((string) $element->staticAttribute('id')) . '">' . $json . '</script>';
     }
 
     /**
@@ -398,6 +456,17 @@ final readonly class Renderer
     // ------------------------------------------------------------------
     // Outils internes
     // ------------------------------------------------------------------
+
+    /**
+     * Le retour à la ligne et l'indentation par lesquels un texte se termine,
+     * ou '' s'il ne se termine pas ainsi.
+     */
+    private static function trailingIndentation(Text $text): string
+    {
+        $last = $text->parts === [] ? null : $text->parts[array_key_last($text->parts)];
+
+        return is_string($last) && preg_match('/\R[ \t]*$/', $last, $match) === 1 ? $match[0] : '';
+    }
 
     /**
      * La balise <k:layout> d'un template, si c'est sa première balise.

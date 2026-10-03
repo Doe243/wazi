@@ -1,0 +1,6 @@
+<k:layout name="base">
+<k:block name="titre">Note n° {note.id}</k:block>
+
+<h1>Note n° {note.id}</h1>
+<p>{note.texte}</p>
+<p k:if="note.importante"><span class="pastille">important</span></p>

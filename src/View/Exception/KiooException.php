@@ -146,14 +146,13 @@ final class KiooException extends \RuntimeException
 
     public static function missingAttribute(string $element, string $attribute): self
     {
-        return new self(sprintf(
-            'La balise <%s> a besoin de l\'attribut « %s ». Exemple : <%s %s="%s">.',
-            $element,
-            $attribute,
-            $element,
-            $attribute,
-            $attribute === 'file' ? 'partiels/pied' : 'titre',
-        ));
+        $example = match ($element) {
+            'k:include' => '<k:include file="partiels/pied">',
+            'k:json' => '<k:json id="donnees" value="{notes}">',
+            default => '<' . $element . ' name="titre">',
+        };
+
+        return new self(sprintf('La balise <%s> a besoin de l\'attribut « %s ». Exemple : %s.', $element, $attribute, $example));
     }
 
     /**

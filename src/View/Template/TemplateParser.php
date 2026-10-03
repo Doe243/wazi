@@ -38,9 +38,12 @@ final class TemplateParser
     private const string TAG_NAME = '/\G[a-zA-Z][a-zA-Z0-9:-]*/';
 
     /** Les balises de Kioo. Les deux premières n'ont jamais de contenu. */
-    private const array KIOO_ELEMENTS = ['k:layout', 'k:include', 'k:block'];
+    private const array KIOO_ELEMENTS = ['k:layout', 'k:include', 'k:block', 'k:json'];
 
-    private const array KIOO_VOID_ELEMENTS = ['k:layout', 'k:include'];
+    private const array KIOO_VOID_ELEMENTS = ['k:layout', 'k:include', 'k:json'];
+
+    /** L'attribut que chaque balise de Kioo exige, écrit en dur. */
+    private const array REQUIRED_ATTRIBUTE = ['k:layout' => 'name', 'k:block' => 'name', 'k:include' => 'file', 'k:json' => 'id'];
 
     /** Les attributs de Kioo. */
     private const array KIOO_ATTRIBUTES = ['k:if', 'k:else', 'k:for'];
@@ -158,7 +161,7 @@ final class TemplateParser
             return;
         }
 
-        // <k:layout name="base"> et <k:include file="pied"> s'écrivent sans balise fermante.
+        // <k:layout name="base">, <k:include file="pied"> et <k:json ...> s'écrivent sans balise fermante.
         if (in_array($lowerName, self::KIOO_VOID_ELEMENTS, true)) {
             $this->append($this->element($name, $attributes, [], true, false, $line));
 
@@ -319,8 +322,9 @@ final class TemplateParser
             throw $this->error(KiooException::unknownDirective('<' . $name . '>', array_map(static fn(string $known): string => '<' . $known . '>', self::KIOO_ELEMENTS)), $line);
         }
 
-        $required = $name === 'k:include' ? 'file' : 'name';
+        $required = self::REQUIRED_ATTRIBUTE[$name];
         $found = false;
+        $hasValue = false;
 
         foreach ($attributes as $attribute) {
             if ($attribute->name === $required) {
@@ -333,6 +337,8 @@ final class TemplateParser
                 }
 
                 $found = true;
+            } elseif ($attribute->name === 'value') {
+                $hasValue = true;
             } elseif ($name === 'k:include' && !str_starts_with($attribute->name, 'k:') && preg_match(self::NAME, $attribute->name) !== 1) {
                 throw $this->error(KiooException::invalidIncludeVariable($attribute->name), $attribute->line);
             }
@@ -340,6 +346,10 @@ final class TemplateParser
 
         if (!$found) {
             throw $this->error(KiooException::missingAttribute($name, $required), $line);
+        }
+
+        if ($name === 'k:json' && !$hasValue) {
+            throw $this->error(KiooException::missingAttribute($name, 'value'), $line);
         }
 
         if ($name === 'k:block' && !$hasEnd) {

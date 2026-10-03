@@ -1,0 +1,5 @@
+<k:layout name="base">
+<k:block name="titre">Note introuvable</k:block>
+
+<h1>Note introuvable</h1>
+<p>Aucune note ne porte le numéro {id}.</p>

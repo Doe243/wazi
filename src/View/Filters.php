@@ -14,6 +14,7 @@ use Wazi\View\Exception\KiooException;
  *     {prix | number(2)}         1 234,50
  *     {date | date('d/m/Y')}     03/10/2026
  *     {auteurs | join(', ')}     Alice, Bob
+ *     {points | json}            [1,2,3]
  *
  * Un filtre reçoit la valeur à sa gauche, puis ses arguments. Il vérifie le
  * type de ce qu'il reçoit et le dit clairement quand il ne convient pas.
@@ -40,7 +41,29 @@ final class Filters
             'join' => self::join(...),
             'first' => static fn(mixed $value): mixed => self::edge('first', $value, true),
             'last' => static fn(mixed $value): mixed => self::edge('last', $value, false),
+            'json' => self::json(...),
         ];
+    }
+
+    /**
+     * Une valeur écrite en JSON, pour la passer à du JavaScript par un attribut :
+     *
+     *     <div id="carte" data-points="{points | json}"></div>
+     *
+     * Le texte obtenu est ensuite échappé comme toute valeur affichée. Les
+     * caractères < > & ' " y sont en plus écrits sous forme de codes Unicode :
+     * même recopié ailleurs, ce JSON ne peut pas fermer une balise ou un attribut.
+     */
+    public static function json(mixed $value): string
+    {
+        try {
+            return json_encode(
+                $value,
+                JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+            );
+        } catch (\JsonException) {
+            throw KiooException::filterExpects('json', 'une valeur qui peut s\'écrire en JSON (texte, nombre, liste, objet simple)', get_debug_type($value));
+        }
     }
 
     /**
