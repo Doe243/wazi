@@ -155,7 +155,7 @@ Conséquence : une page lente fait attendre les autres requêtes du même visite
 
 ## Les limites
 
-- Les sessions sont rangées dans des **fichiers**, sur un seul serveur. Un site réparti sur plusieurs serveurs aura besoin d'un autre rangement (prévu avec la base de données).
+- Les sessions sont rangées dans des **fichiers**, sur un seul serveur. Un site réparti sur plusieurs serveurs aura besoin d'un autre rangement, en base de données (pas encore fait).
 - Le nombre d'essais de connexion n'est pas limité par Wazi : c'est à votre application de ralentir quelqu'un qui essaie des milliers de mots de passe.
 
 Suite : [Les formulaires](09-formulaires.md).

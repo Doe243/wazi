@@ -25,6 +25,11 @@
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.0"
     },
+    "suggest": {
+        "ext-pdo_sqlite": "Pour une base de données SQLite avec Wazi\\Database",
+        "ext-pdo_mysql": "Pour une base de données MySQL ou MariaDB avec Wazi\\Database",
+        "ext-pdo_pgsql": "Pour une base de données PostgreSQL avec Wazi\\Database"
+    },
     "provide": {
         "psr/container-implementation": "2.0",
         "psr/http-factory-implementation": "1.0",

@@ -78,12 +78,13 @@ Vers une adresse écrite dans votre code, jamais vers une adresse reçue dans la
 
 ### La base de données
 
-Quand vous en utiliserez une : **des requêtes préparées**, toujours. Ne construisez jamais une requête SQL en y collant une valeur.
+Une valeur ne s'écrit jamais dans le SQL : on écrit un marqueur (`?`), et on donne la valeur à part. La base reçoit les deux séparément, et l'injection SQL devient impossible.
 
 ```php
-$requete = $pdo->prepare('SELECT * FROM notes WHERE auteur = ?');
-$requete->execute([$auteur]);
+$notes = $db->select('SELECT * FROM notes WHERE auteur = ?', [$auteur]);
 ```
+
+Wazi n'a aucune méthode qui colle une valeur dans une requête. Ce qui reste à votre charge : ne jamais assembler vous-même du SQL avec une variable venue d'un visiteur, et ne jamais lui laisser choisir un nom de table ou de colonne. Voir [La base de données](14-base-de-donnees.md).
 
 ### Vos dépendances
 

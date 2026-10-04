@@ -2,7 +2,7 @@
 
 Wazi est un framework PHP pensé pour **comprendre** ce qu'on construit. Cette documentation suit le même principe : chaque page dit ce que fait une pièce, comment s'en servir, et pourquoi elle est faite ainsi.
 
-> Wazi est en construction (version 0.3). Ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0.
+> Wazi est en construction (version 0.4 en cours). Ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0.
 
 ## Le guide
 
@@ -23,6 +23,7 @@ Wazi est un framework PHP pensé pour **comprendre** ce qu'on construit. Cette d
 | 11 | [La sécurité](guide/11-securite.md) | Ce que Wazi fait pour vous, et ce qui reste à votre charge |
 | 12 | [Mettre en ligne](guide/12-deploiement.md) | Préparer un serveur et régler l'application pour la production |
 | 13 | [La console](guide/13-console.md) | Lancer le site depuis le terminal, écrire ses propres commandes |
+| 14 | [La base de données](guide/14-base-de-donnees.md) | Lire et écrire en SQL sans risque d'injection, construire la base par des migrations |
 
 ## Les exemples
 
@@ -46,6 +47,5 @@ La troisième, [la démonstration](../examples/demo/README.md), utilise tout ce 
 
 Pour ne pas chercher ce qui n'existe pas :
 
-- **pas de base de données** : prévue pour la version 0.4 ;
 - **pas d'authentification toute faite** : le guide montre comment construire une connexion avec les sessions ;
 - **le projet de départ** (`wazi/skeleton`) existe, mais ni lui ni le framework ne sont encore publiés sur Packagist : `composer create-project wazi/skeleton` ne fonctionne donc pas encore depuis Internet.
