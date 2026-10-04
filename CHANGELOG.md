@@ -8,7 +8,11 @@ Ce qui change d'une version de Wazi à l'autre. Le format suit [Keep a Changelog
 
 Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions-et-publications.md).
 
-## À venir : 0.4.0 « Ça se construit »
+## À venir
+
+Rien pour l'instant.
+
+## 0.4.0 « Ça se construit » — 2026-10-04
 
 ### Ajouté
 - **La console `wazi`** : `serve`, `routes`, `explain`, `make:controller`, `views:compile`, et vos propres commandes.

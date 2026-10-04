@@ -1,7 +1,9 @@
 name: CI
 
+# Sur chaque demande de fusion, et sur main après la fusion (ADR-034).
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:

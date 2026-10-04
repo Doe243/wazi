@@ -1,6 +1,6 @@
 # ADR-033 : versions et publications
 
-**Statut :** acceptée
+**Statut :** acceptée (le point « une seule branche » de ses conséquences est remplacé par l'ADR-034)
 
 ## Contexte
 Jusqu'ici, le travail avançait commit après commit sur `main`, avec un tag posé de temps en temps (`0.1.0`, `0.2.0`, `0.3.0`). Rien ne disait ce qu'un numéro de version promet, ni quand une version est terminée. Résultat : le contenu d'une version grossit au fil des idées, un correctif part sans numéro, et le projet de départ dépend d'un code qui n'a pas encore de version (demande de l'utilisateur, 2026-10-04 : « sinon on va je ne sais où »).
