@@ -37,6 +37,8 @@ $app->router->addController(ArticleController::class);
 
 Personne n'a écrit `new ArticleController(new Catalogue())`. C'est le travail du conteneur.
 
+Pour partir d'un contrôleur déjà écrit et commenté, la console en crée un, avec sa page : `wazi make:controller Article`. Voir [La console](13-console.md).
+
 ## Le conteneur
 
 Pour fabriquer un contrôleur, il faut d'abord fabriquer ce dont il a besoin, et ce dont ses besoins ont besoin. Le **conteneur** le fait à votre place : il lit le constructeur de la classe demandée, fabrique chaque objet attendu, et recommence pour chacun.
