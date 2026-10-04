@@ -10,7 +10,8 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 
 ## À venir
 
-Rien pour l'instant.
+### Ajouté
+- Dépôt : guide de contribution (`CONTRIBUTING.md`), modèles de demande de fusion et d'issue, mises à jour de dépendances proposées par Dependabot.
 
 ## 0.4.0 « Ça se construit » — 2026-10-04
 

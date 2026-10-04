@@ -1,0 +1,6 @@
+# Une issue part toujours d'un des deux modèles : bogue, ou proposition.
+blank_issues_enabled: false
+contact_links:
+  - name: Signaler une faille de sécurité
+    url: https://github.com/Doe243/wazi/security/advisories/new
+    about: Jamais dans une issue publique. Ce lien ouvre un signalement privé.
