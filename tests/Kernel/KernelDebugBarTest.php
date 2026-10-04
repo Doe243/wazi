@@ -6,6 +6,8 @@ namespace Wazi\Tests\Kernel;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Wazi\Contracts\Tracer;
+use Wazi\Database\Database;
 use Wazi\Debug\Panel;
 use Wazi\Debug\Trace;
 use Wazi\Errors\ErrorHandler;
@@ -35,7 +37,7 @@ final class KernelDebugBarTest extends TestCase
 
         self::assertNotNull($page->getElementById('wz-barre'));
         self::assertSame(
-            ['Requête', 'Route', 'Middlewares', 'Templates', 'Session', 'Wazi'],
+            ['Requête', 'Route', 'Middlewares', 'Templates', 'Base', 'Session', 'Wazi'],
             array_map(static fn(\Dom\Node $name): string => (string) $name->textContent, iterator_to_array($page->querySelectorAll('#wz-barre .wz-nom'))),
         );
         // La page elle-même est intacte.
@@ -199,8 +201,74 @@ final class KernelDebugBarTest extends TestCase
         $without = DebugPanels::collect(self::local('/'), new Response(200), new Router(), [], null, new Trace(), 1.0);
         $notStarted = DebugPanels::collect(self::local('/'), new Response(200), new Router(), [], new Session(), new Trace(), 1.0);
 
-        self::assertSame('non réglée', $without[4]->summary);
-        self::assertSame('aucune', $notStarted[4]->summary);
+        self::assertSame('non réglée', $without[5]->summary);
+        self::assertSame('aucune', $notStarted[5]->summary);
+    }
+
+    // --- La base de données --------------------------------------------------------
+
+    /**
+     * En mode développement, le noyau donne de quoi signaler ; en production, rien.
+     */
+    public function testTheKernelOffersATracerInDevelopmentOnly(): void
+    {
+        self::assertInstanceOf(Tracer::class, $this->kernel(development: true)->tracer);
+        self::assertNull($this->kernel(development: false)->tracer);
+        self::assertNull($this->kernel(development: true, debugBar: false)->tracer);
+    }
+
+    public function testItShowsTheQueriesOfThePage(): void
+    {
+        $app = $this->kernel(development: true);
+        $db = Database::sqlite(':memory:')->withTracer($app->tracer);
+        $db->execute('CREATE TABLE notes (id INTEGER PRIMARY KEY, auteur TEXT)');
+        $app->router->get('/notes', static function () use ($db): ResponseInterface {
+            $db->select('SELECT * FROM notes WHERE auteur = ?', ['valeur-secrete-de-la-requete']);
+
+            return new Response(200, ['Content-Type' => 'text/html'], self::PAGE);
+        });
+
+        $text = self::barText((string) $app->handle(self::local('/notes'))->getBody());
+
+        self::assertMatchesRegularExpression('/Base2 · \d+(,\d)? ms/u', $text);
+        self::assertStringContainsString('SELECT * FROM notes WHERE auteur = ?', $text);
+        // Sécurité : le texte de la requête, jamais ses valeurs.
+        self::assertStringNotContainsString('valeur-secrete-de-la-requete', $text);
+    }
+
+    public function testWithoutAnyQueryThePanelSaysHowToSeeThem(): void
+    {
+        $panel = DebugPanels::collect(self::local('/'), new Response(200), new Router(), [], null, new Trace(), 1.0)[4];
+
+        self::assertSame('Base', $panel->name);
+        self::assertSame('0', $panel->summary);
+        self::assertStringContainsString('withTracer($app->tracer)', implode(' ', $panel->rows));
+    }
+
+    /**
+     * La même requête lancée en boucle est l'oubli le plus courant : la barre le dit.
+     */
+    public function testAQueryRepeatedInALoopIsPointedOut(): void
+    {
+        $trace = new Trace();
+
+        foreach ([1, 2, 3] as $ignored) {
+            $trace->record('sql', 'SELECT * FROM auteurs WHERE id = ?', 0.2);
+        }
+
+        $trace->record('sql', 'SELECT * FROM notes', 0.5);
+        $panel = DebugPanels::collect(self::local('/'), new Response(200), new Router(), [], null, $trace, 1.0)[4];
+
+        self::assertTrue($panel->alert);
+        self::assertSame('4 · 1,1 ms', $panel->summary);
+        self::assertStringContainsString('lancée 3 fois', $panel->rows['À regarder']);
+
+        // Deux fois, ce n'est pas encore une boucle.
+        $calm = new Trace();
+        $calm->record('sql', 'SELECT 1', 0.1);
+        $calm->record('sql', 'SELECT 1', 0.1);
+
+        self::assertFalse(DebugPanels::collect(self::local('/'), new Response(200), new Router(), [], null, $calm, 1.0)[4]->alert);
     }
 
     /**

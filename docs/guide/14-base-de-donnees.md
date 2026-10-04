@@ -14,8 +14,10 @@ use Wazi\Database\Database;
 $app->container->set(Database::class, static fn(): Database => Database::fromUrl(
     $config->string('DATABASE_URL', 'sqlite:var/app.sqlite'),
     __DIR__,
-));
+)->withTracer($app->tracer));
 ```
+
+`withTracer($app->tracer)` est facultatif : en mode développement, il fait apparaître les requêtes de chaque page dans la [barre de débogage](15-barre-de-debogage.md). En production, `$app->tracer` vaut `null`, et rien n'est signalé.
 
 Sans réglage, c'est une base **SQLite** : un simple fichier, `var/app.sqlite`. Il n'y a rien à installer, c'est la base idéale pour commencer.
 
