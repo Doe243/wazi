@@ -102,6 +102,11 @@ final class Database
             throw DatabaseException::relativePath();
         }
 
+        // Sécurité : le chemin vérifié ci-dessous doit être celui qui sera
+        // ouvert. On retire donc les « .. » avant de vérifier, et c'est le
+        // chemin ainsi simplifié qui sert ensuite.
+        $file = self::withoutDots($file);
+
         if (!$unsafeAllowPublicLocation && self::isInsideDocumentRoot($file)) {
             throw DatabaseException::publiclyAccessible($file);
         }
@@ -772,6 +777,30 @@ final class Database
     private static function isAbsolute(string $path): bool
     {
         return preg_match('#^(?:[/\\\\]|[A-Za-z]:[/\\\\])#', $path) === 1;
+    }
+
+    /**
+     * Le même chemin, sans ses « . » ni ses « .. » : « /site/var/../public/x » devient « /site/public/x ».
+     *
+     * Le calcul se fait sur le texte, sans regarder le disque : un chemin qui
+     * passe par un dossier pas encore créé ne peut pas tromper la vérification.
+     */
+    private static function withoutDots(string $path): string
+    {
+        // Ce qui précède le premier nom : « / », « C:\ », ou « \\ » pour un partage réseau.
+        preg_match('#^(?:[A-Za-z]:[/\\\\]|[/\\\\]{1,2})#', $path, $match);
+        $root = $match[0] ?? '';
+        $segments = [];
+
+        foreach (preg_split('#[/\\\\]+#', substr($path, strlen($root)), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $segment) {
+            if ($segment === '..') {
+                array_pop($segments);
+            } elseif ($segment !== '.') {
+                $segments[] = $segment;
+            }
+        }
+
+        return $root . implode('/', $segments);
     }
 
     /**
