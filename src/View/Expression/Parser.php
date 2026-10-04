@@ -336,14 +336,14 @@ final class Parser
 
     private function isOperator(string ...$operators): bool
     {
-        $token = $this->current();
+        $token = $this->tokens[$this->cursor];
 
         return $token['type'] === Lexer::OPERATOR && in_array($token['value'], $operators, true);
     }
 
     private function isName(string $name): bool
     {
-        $token = $this->current();
+        $token = $this->tokens[$this->cursor];
 
         return $token['type'] === Lexer::NAME && $token['value'] === $name;
     }

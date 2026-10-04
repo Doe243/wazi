@@ -45,18 +45,20 @@ final readonly class Evaluator
      */
     public function evaluate(Node $node, array $variables): mixed
     {
-        return match (true) {
-            $node instanceof Literal => $node->value,
-            $node instanceof Variable => $this->variable($node, $variables),
-            $node instanceof Property => $this->property($node, $variables),
-            $node instanceof Index => $this->index($node, $variables),
-            $node instanceof MethodCall => $this->methodCall($node, $variables),
-            $node instanceof Unary => $this->unary($node, $variables),
-            $node instanceof Binary => $this->binary($node, $variables),
-            $node instanceof Ternary => $this->isTruthy($this->evaluate($node->condition, $variables))
+        // On choisit selon la classe de l'élément : PHP y va directement,
+        // sans essayer les cas un par un.
+        return match ($node::class) {
+            Variable::class => $this->variable($node, $variables),
+            Property::class => $this->property($node, $variables),
+            Literal::class => $node->value,
+            Filter::class => $this->filter($node, $variables),
+            Ternary::class => $this->isTruthy($this->evaluate($node->condition, $variables))
                 ? $this->evaluate($node->then, $variables)
                 : $this->evaluate($node->else, $variables),
-            $node instanceof Filter => $this->filter($node, $variables),
+            Binary::class => $this->binary($node, $variables),
+            Unary::class => $this->unary($node, $variables),
+            Index::class => $this->index($node, $variables),
+            MethodCall::class => $this->methodCall($node, $variables),
             default => throw new \LogicException('Élément d\'expression inconnu : ' . $node::class),
         };
     }

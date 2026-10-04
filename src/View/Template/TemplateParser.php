@@ -61,6 +61,11 @@ final class TemplateParser
 
     private int $length = 0;
 
+    /** Jusqu'où les lignes ont déjà été comptées, et le numéro de ligne à cet endroit. */
+    private int $countedUpTo = 0;
+
+    private int $lineNumber = 1;
+
     /**
      * Les balises ouvertes et pas encore fermées, de la plus extérieure à la plus intérieure.
      *
@@ -89,13 +94,15 @@ final class TemplateParser
         $this->template = $template;
         $this->position = 0;
         $this->length = strlen($source);
+        $this->countedUpTo = 0;
+        $this->lineNumber = 1;
         $this->open = [];
         $this->root = [];
         $this->hasLayout = false;
 
         while ($this->position < $this->length) {
             match (true) {
-                $this->startsWith('<!--') => $this->append(new Raw($this->readUntil('-->', 'Le commentaire <!--'))),
+                $this->startsWith('<!--') => $this->skipComment(),
                 $this->startsWith('<!'), $this->startsWith('<?') => $this->append(new Raw($this->readUntil('>', 'La déclaration <!'))),
                 $this->startsWith('</') => $this->parseClosingTag(),
                 $this->isTagStart() => $this->parseOpeningTag(),
@@ -110,6 +117,75 @@ final class TemplateParser
         }
 
         return $this->root;
+    }
+
+    // ------------------------------------------------------------------
+    // Commentaires
+    // ------------------------------------------------------------------
+
+    /**
+     * Un commentaire <!-- … --> est lu, puis oublié : il n'est jamais écrit
+     * dans la page.
+     *
+     * Sécurité (ADR-025) : un commentaire s'adresse à qui lit le template, pas
+     * au visiteur. Laissé dans la page, il lui apprendrait comment le site
+     * est fait, ou ce qu'il reste à corriger.
+     */
+    private function skipComment(): void
+    {
+        $start = $this->position;
+        $this->readUntil('-->', 'Le commentaire <!--');
+
+        // Un commentaire seul sur sa ligne emporte sa ligne avec lui : on
+        // retire l'indentation qui le précède et le retour à la ligne qui le suit.
+        $lineStart = strrpos(substr($this->source, 0, $start), "\n");
+        $before = substr($this->source, $lineStart === false ? 0 : $lineStart + 1, $start - ($lineStart === false ? 0 : $lineStart + 1));
+        $spaces = strspn($this->source, " \t", $this->position);
+        $after = substr($this->source, $this->position + $spaces, 2);
+
+        if (trim($before, " \t") !== '' || ($after !== '' && $after[0] !== "\n" && $after !== "\r\n")) {
+            return;
+        }
+
+        $this->dropTrailingIndentation();
+        $this->position += $spaces + ($after === "\r\n" ? 2 : strlen(substr($after, 0, 1)));
+    }
+
+    /**
+     * Retire les espaces qui terminent le dernier texte lu (l'indentation d'une ligne).
+     */
+    private function dropTrailingIndentation(): void
+    {
+        if ($this->open === []) {
+            $siblings = &$this->root;
+        } else {
+            $siblings = &$this->open[array_key_last($this->open)]['children'];
+        }
+
+        $last = $siblings === [] ? null : $siblings[array_key_last($siblings)];
+
+        if (!$last instanceof Text || $last->parts === []) {
+            return;
+        }
+
+        $parts = $last->parts;
+        $final = $parts[array_key_last($parts)];
+
+        if (!is_string($final)) {
+            return;
+        }
+
+        $trimmed = rtrim($final, " \t");
+        array_pop($parts);
+        array_pop($siblings);
+
+        if ($trimmed !== '') {
+            $parts[] = $trimmed;
+        }
+
+        if ($parts !== []) {
+            $siblings[] = new Text($parts);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -132,7 +208,7 @@ final class TemplateParser
 
             if ($this->startsWith('/>')) {
                 $this->position += 2;
-                $this->append($this->element($name, $attributes, [], true, false, $line));
+                $this->append(self::flattened($this->element($name, $attributes, [], true, false, $line)));
 
                 return;
             }
@@ -156,7 +232,7 @@ final class TemplateParser
         $lowerName = strtolower($name);
 
         if (in_array($lowerName, self::VOID_ELEMENTS, true)) {
-            $this->append($this->element($name, $attributes, [], false, false, $line));
+            $this->append(self::flattened($this->element($name, $attributes, [], false, false, $line)));
 
             return;
         }
@@ -169,7 +245,7 @@ final class TemplateParser
         }
 
         if (in_array($lowerName, self::RAW_TEXT_ELEMENTS, true)) {
-            $this->append($this->element($name, $attributes, [new Raw($this->readRawText($lowerName, $line))], false, true, $line));
+            $this->append(self::flattened($this->element($name, $attributes, [new Raw($this->readRawText($lowerName, $line))], false, true, $line)));
 
             return;
         }
@@ -225,7 +301,73 @@ final class TemplateParser
             return;
         }
 
-        $this->append($this->element($frame['name'], $frame['attributes'], $frame['children'], false, $closed, $frame['line']));
+        $this->append(self::flattened($this->element($frame['name'], $frame['attributes'], $frame['children'], false, $closed, $frame['line'])));
+    }
+
+    /**
+     * Une balise dont rien ne dépend d'une valeur est écrite tout de suite,
+     * une fois pour toutes : voir StaticElement. Les autres sont rendues telles quelles.
+     */
+    private static function flattened(Element $element): Element|StaticElement
+    {
+        $name = $element->lowerName();
+
+        // Une structure (k:if, k:for, k:else), une balise <k:…>, un <script>
+        // (qui reçoit le jeton du jour) ou un <form> (qui reçoit le jeton de
+        // protection) se décident au moment d'afficher la page.
+        if ($element->condition !== null
+            || $element->loop !== null
+            || $element->isElse
+            || $name === 'script'
+            || $name === 'form'
+            || str_starts_with($name, 'k:')
+        ) {
+            return $element;
+        }
+
+        $html = '<' . $element->name;
+
+        foreach ($element->attributes as $attribute) {
+            if ($attribute->static === null) {
+                return $element;
+            }
+
+            $html .= $attribute->static;
+        }
+
+        if ($element->selfClosing) {
+            return new StaticElement($html . ' />');
+        }
+
+        $html .= '>';
+
+        foreach ($element->children as $child) {
+            if ($child instanceof StaticElement) {
+                $html .= $child->html;
+            } elseif ($child instanceof Raw) {
+                $html .= $child->source;
+            } elseif ($child instanceof Text && self::isFixedText($child)) {
+                $html .= implode('', $child->parts);
+            } else {
+                return $element;
+            }
+        }
+
+        return new StaticElement($element->closed ? $html . '</' . $element->name . '>' : $html);
+    }
+
+    /**
+     * @phpstan-assert-if-true list<string> $text->parts
+     */
+    private static function isFixedText(Text $text): bool
+    {
+        foreach ($text->parts as $part) {
+            if (!is_string($part)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ------------------------------------------------------------------
@@ -382,11 +524,6 @@ final class TemplateParser
         return true;
     }
 
-    private static function isComment(TemplateNode $node): bool
-    {
-        return $node instanceof Raw && str_starts_with($node->source, '<!--');
-    }
-
     private static function isWhitespace(TemplateNode $node): bool
     {
         if (!$node instanceof Text) {
@@ -407,9 +544,9 @@ final class TemplateParser
         $line = $this->line();
         $start = $this->position;
 
-        while ($this->position < $this->length && !str_contains(" \t\r\n=>/", $this->source[$this->position])) {
-            $this->position++;
-        }
+        // strcspn() donne d'un coup le nombre de caractères avant le prochain
+        // de la liste : plus rapide que d'avancer caractère par caractère.
+        $this->position += strcspn($this->source, " \t\r\n=>/", $this->position);
 
         // Un caractère inattendu ici (un « = » sans nom, par exemple) : on avance
         // d'un cran pour ne pas rester bloqué, et il fera partie du nom.
@@ -494,9 +631,7 @@ final class TemplateParser
     {
         $start = $this->position;
 
-        while ($this->position < $this->length && !str_contains(" \t\r\n>", $this->source[$this->position])) {
-            $this->position++;
-        }
+        $this->position += strcspn($this->source, " \t\r\n>", $this->position);
 
         $value = substr($this->source, $start, $this->position - $start);
 
@@ -531,6 +666,13 @@ final class TemplateParser
         $start = $this->position;
 
         while ($this->position < $this->length) {
+            // On saute d'un coup tout ce qui n'est ni « \ », ni « { », ni « < ».
+            $this->position += strcspn($this->source, '\\{<', $this->position);
+
+            if ($this->position >= $this->length) {
+                break;
+            }
+
             $character = $this->source[$this->position];
 
             if ($character === '\\' && ($this->source[$this->position + 1] ?? '') === '{') {
@@ -568,6 +710,16 @@ final class TemplateParser
         $length = strlen($text);
 
         while ($position < $length) {
+            // Tout ce qui précède le prochain « \ » ou « { » est du texte fixe.
+            $run = strcspn($text, '\\{', $position);
+
+            if ($run > 0) {
+                $fixed .= substr($text, $position, $run);
+                $position += $run;
+
+                continue;
+            }
+
             $character = $text[$position];
 
             // « \{ » écrit une vraie accolade.
@@ -652,46 +804,52 @@ final class TemplateParser
 
     private function append(TemplateNode $node): void
     {
-        if ($this->open === []) {
-            $this->root = $this->appendTo($this->root, $node);
+        $last = array_key_last($this->open);
+
+        // Le cas de presque toutes les balises : on ajoute à la suite, sur
+        // place, sans recopier la liste des voisins.
+        if (!$node instanceof Element || !$node->isElse) {
+            if ($last === null) {
+                $this->root[] = $node;
+            } else {
+                $this->open[$last]['children'][] = $node;
+            }
 
             return;
         }
 
-        $last = array_key_last($this->open);
-        $this->open[$last]['children'] = $this->appendTo($this->open[$last]['children'], $node);
+        if ($last === null) {
+            $this->root = $this->attachElse($this->root, $node);
+        } else {
+            $this->open[$last]['children'] = $this->attachElse($this->open[$last]['children'], $node);
+        }
     }
 
     /**
-     * Ajoute un élément à une liste de voisins. Une balise k:else n'y est pas
-     * ajoutée : elle est rattachée à la balise k:if ou k:for qui la précède.
+     * Une balise k:else n'est pas ajoutée à la liste de ses voisins : elle est
+     * rattachée à la balise k:if ou k:for qui la précède.
      *
      * @param list<TemplateNode> $siblings
      *
      * @return list<TemplateNode>
      */
-    private function appendTo(array $siblings, TemplateNode $node): array
+    private function attachElse(array $siblings, Element $node): array
     {
-        if (!$node instanceof Element || !$node->isElse) {
-            $siblings[] = $node;
-
-            return $siblings;
-        }
-
-        // On remonte les voisins en sautant les espaces, les retours à la
-        // ligne et les commentaires : on a le droit d'expliquer son k:else.
+        // On remonte les voisins en sautant les espaces et les retours à la
+        // ligne. Les commentaires, eux, ont déjà disparu : on a donc le droit
+        // d'expliquer son k:else.
         for ($index = count($siblings) - 1; $index >= 0; $index--) {
             $previous = $siblings[$index];
 
-            if (self::isWhitespace($previous) || self::isComment($previous)) {
+            if (self::isWhitespace($previous)) {
                 continue;
             }
 
             if ($previous instanceof Element && ($previous->condition !== null || $previous->loop !== null) && $previous->otherwise === null) {
                 $siblings[$index] = $previous->withOtherwise($node);
 
-                // Ce qui séparait les deux balises (espaces, commentaires)
-                // n'est pas écrit dans la page : une seule des deux le sera.
+                // Les espaces qui séparaient les deux balises ne sont pas
+                // écrits dans la page : une seule des deux le sera.
                 return array_slice($siblings, 0, $index + 1);
             }
 
@@ -728,9 +886,7 @@ final class TemplateParser
 
     private function skipWhitespace(): void
     {
-        while ($this->position < $this->length && ctype_space($this->source[$this->position])) {
-            $this->position++;
-        }
+        $this->position += strspn($this->source, " \t\n\r\v\f", $this->position);
     }
 
     /**
@@ -760,6 +916,12 @@ final class TemplateParser
         $start = $this->position;
 
         while ($this->position < $this->length) {
+            $this->position += strcspn($this->source, '\\{' . $quote, $this->position);
+
+            if ($this->position >= $this->length) {
+                break;
+            }
+
             $character = $this->source[$this->position];
 
             if ($character === '\\' && ($this->source[$this->position + 1] ?? '') === '{') {
@@ -805,9 +967,22 @@ final class TemplateParser
         return $content;
     }
 
+    /**
+     * Le numéro de la ligne où l'on se trouve.
+     *
+     * On ne recompte pas depuis le début du fichier à chaque appel : on compte
+     * seulement les retours à la ligne franchis depuis l'appel précédent.
+     */
     private function line(): int
     {
-        return substr_count($this->source, "\n", 0, min($this->position, $this->length)) + 1;
+        $position = min($this->position, $this->length);
+
+        if ($position > $this->countedUpTo) {
+            $this->lineNumber += substr_count($this->source, "\n", $this->countedUpTo, $position - $this->countedUpTo);
+            $this->countedUpTo = $position;
+        }
+
+        return $this->lineNumber;
     }
 
     private function error(KiooException $exception, int $line): KiooException

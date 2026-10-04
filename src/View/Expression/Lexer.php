@@ -29,8 +29,17 @@ final class Lexer
     public const string OPERATOR = 'opérateur';
     public const string END = 'fin';
 
-    /** Les opérateurs, du plus long au plus court : « >= » doit être reconnu avant « > ». */
-    private const array OPERATORS = ['==', '!=', '<=', '>=', '??', '<', '>', '+', '-', '*', '/', '%', '(', ')', '[', ']', '.', ',', '?', ':', '|'];
+    /**
+     * Ce qui peut commencer à un endroit de l'expression, en une seule recherche :
+     *   1. des espaces ;
+     *   2. un nombre : 42 ou 3.14 (le point n'en fait partie que s'il est suivi d'un chiffre) ;
+     *   3. un nom : une variable, une propriété, un filtre, ou un mot du langage (and, true...) ;
+     *   4. un opérateur, les plus longs d'abord : « >= » doit être reconnu avant « > ».
+     *
+     * « \G » ancre la recherche à la position demandée. L'expression est
+     * écrite ici, une fois pour toutes : rien n'y vient d'un template.
+     */
+    private const string TOKEN = '/\G(?:(\s+)|(\d+(?:\.\d+)?)|([a-zA-Z_][a-zA-Z0-9_]*)|(==|!=|<=|>=|\?\?|[<>+\-*\/%()\[\].,?:|]))/';
 
     /** Dans un texte entre guillemets, « \n » désigne un retour à la ligne, etc. */
     private const array ESCAPES = ['n' => "\n", 't' => "\t", '\\' => '\\', "'" => "'", '"' => '"'];
@@ -49,32 +58,6 @@ final class Lexer
         while ($position < $length) {
             $character = $expression[$position];
 
-            if (ctype_space($character)) {
-                $position++;
-
-                continue;
-            }
-
-            // Un nombre : 42 ou 3.14. Le point n'en fait partie que s'il est suivi d'un chiffre.
-            if (preg_match('/\G\d+(?:\.\d+)?/', $expression, $match, 0, $position) === 1) {
-                $tokens[] = [
-                    'type' => self::NUMBER,
-                    'value' => str_contains($match[0], '.') ? (float) $match[0] : (int) $match[0],
-                    'position' => $position,
-                ];
-                $position += strlen($match[0]);
-
-                continue;
-            }
-
-            // Un nom : une variable, une propriété, un filtre, ou un mot du langage (and, true...).
-            if (preg_match('/\G[a-zA-Z_][a-zA-Z0-9_]*/', $expression, $match, 0, $position) === 1) {
-                $tokens[] = ['type' => self::NAME, 'value' => $match[0], 'position' => $position];
-                $position += strlen($match[0]);
-
-                continue;
-            }
-
             if ($character === "'" || $character === '"') {
                 [$text, $end] = $this->readString($expression, $position);
                 $tokens[] = ['type' => self::STRING, 'value' => $text, 'position' => $position];
@@ -83,14 +66,24 @@ final class Lexer
                 continue;
             }
 
-            $operator = $this->operatorAt($expression, $position);
-
-            if ($operator === null) {
+            if (preg_match(self::TOKEN, $expression, $match, PREG_UNMATCHED_AS_NULL, $position) !== 1) {
                 throw KiooException::unexpectedCharacter($expression, $position);
             }
 
-            $tokens[] = ['type' => self::OPERATOR, 'value' => $operator, 'position' => $position];
-            $position += strlen($operator);
+            // Un seul des quatre groupes a trouvé quelque chose.
+            if (isset($match[2])) {
+                $tokens[] = [
+                    'type' => self::NUMBER,
+                    'value' => str_contains($match[2], '.') ? (float) $match[2] : (int) $match[2],
+                    'position' => $position,
+                ];
+            } elseif (isset($match[3])) {
+                $tokens[] = ['type' => self::NAME, 'value' => $match[3], 'position' => $position];
+            } elseif (isset($match[4])) {
+                $tokens[] = ['type' => self::OPERATOR, 'value' => $match[4], 'position' => $position];
+            }
+
+            $position += strlen($match[0]);
         }
 
         $tokens[] = ['type' => self::END, 'value' => '', 'position' => $length];
@@ -133,14 +126,4 @@ final class Lexer
         throw KiooException::unterminatedString($expression, $start);
     }
 
-    private function operatorAt(string $expression, int $position): ?string
-    {
-        foreach (self::OPERATORS as $operator) {
-            if (substr_compare($expression, $operator, $position, strlen($operator)) === 0) {
-                return $operator;
-            }
-        }
-
-        return null;
-    }
 }

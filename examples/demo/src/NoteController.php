@@ -12,6 +12,7 @@ use Wazi\Http\Session;
 use Wazi\Routing\Attribute\Get;
 use Wazi\Routing\Attribute\Patch;
 use Wazi\Routing\Attribute\Post;
+use Wazi\View\Kioo;
 
 /**
  * Le carnet d'un visiteur connecté : lire, chercher, ajouter, modifier, supprimer.
@@ -33,7 +34,8 @@ final readonly class NoteController
 
     public function __construct(
         private Carnet $carnet,
-        private Pages $pages,
+        private Kioo $kioo,
+        private Visiteur $visiteur,
         private Session $session,
         private CsrfToken $jeton,
     ) {}
@@ -72,7 +74,7 @@ final readonly class NoteController
         $note = $this->carnet->trouver($id, $this->auteur());
 
         return $note === null
-            ? $this->pages->page('notes/introuvable', ['id' => $id], 404)
+            ? $this->kioo->page('notes/introuvable', ['id' => $id], 404)
             : $this->pageNote($note, $note['texte'], $note['couleur'], $note['importante']);
     }
 
@@ -82,7 +84,7 @@ final readonly class NoteController
         $note = $this->carnet->trouver($id, $this->auteur());
 
         if ($note === null) {
-            return $this->pages->page('notes/introuvable', ['id' => $id], 404);
+            return $this->kioo->page('notes/introuvable', ['id' => $id], 404);
         }
 
         $texte = self::champ($request, 'texte');
@@ -146,7 +148,7 @@ final readonly class NoteController
 
         $toutes = $this->carnet->de($this->auteur());
 
-        return $this->pages->page('notes/liste', [
+        return $this->kioo->page('notes/liste', [
             'notes' => $this->carnet->de($this->auteur(), $recherche, $importantesSeules),
             'total' => count($toutes),
             'importantes' => count(array_filter($toutes, static fn(array $note): bool => $note['importante'])),
@@ -173,7 +175,7 @@ final readonly class NoteController
      */
     private function pageNote(array $note, string $saisie, string $couleur, bool $importante, ?string $erreur = null, int $statut = 200): ResponseInterface
     {
-        return $this->pages->page('notes/note', [
+        return $this->kioo->page('notes/note', [
             'note' => $note,
             'couleurs' => Carnet::COULEURS,
             'saisie' => $saisie,
@@ -187,7 +189,7 @@ final readonly class NoteController
     private function auteur(): string
     {
         // ConnexionRequise garantit qu'un visiteur est connecté.
-        return $this->pages->utilisateur() ?? throw new \LogicException('Cette route doit porter le middleware ConnexionRequise.');
+        return $this->visiteur->nom() ?? throw new \LogicException('Cette route doit porter le middleware ConnexionRequise.');
     }
 
     /**

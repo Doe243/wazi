@@ -83,7 +83,7 @@ $app->container->bind(Messagerie::class, MessagerieSmtp::class);
 
 | Classe | Disponible |
 | --- | --- |
-| `Wazi\View\Kioo` | si vous avez donné `views:` au noyau |
+| `Wazi\View\Kioo` | si vous avez donné `views:` au noyau ; se règle avec `addFilter()` et `share()` |
 | `Wazi\Http\Session` | si vous avez donné `sessions:` au noyau |
 | `Wazi\Http\CsrfToken` | toujours |
 | `Wazi\Http\CspNonce` | toujours |

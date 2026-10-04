@@ -32,6 +32,9 @@ final class TemplateLoader
     /** @var array<string, list<TemplateNode>> */
     private array $loaded = [];
 
+    /** Le chemin réel du dossier des vues, cherché une seule fois. */
+    private ?string $realDirectory = null;
+
     /**
      * @param string|null $directory le dossier des vues ; null si le moteur ne lit pas de fichier
      */
@@ -70,11 +73,17 @@ final class TemplateLoader
             throw KiooException::noViewsDirectory();
         }
 
-        $directory = realpath($this->directory);
+        if ($this->realDirectory === null) {
+            $directory = realpath($this->directory);
 
-        if ($directory === false || !is_dir($directory)) {
-            throw KiooException::viewsDirectoryNotFound();
+            if ($directory === false || !is_dir($directory)) {
+                throw KiooException::viewsDirectoryNotFound();
+            }
+
+            $this->realDirectory = $directory;
         }
+
+        $directory = $this->realDirectory;
 
         // realpath() donne le chemin réel, liens symboliques résolus.
         $file = realpath($directory . DIRECTORY_SEPARATOR . $name . self::EXTENSION);

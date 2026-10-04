@@ -33,7 +33,7 @@ examples/demo/
 │   ├── Carnet.php           Le service qui range les notes (il ne sait rien du web)
 │   ├── Comptes.php          Les comptes et la vérification des mots de passe
 │   ├── Filtres.php          Les filtres Kioo de l'application : « depuis », « initiale »
-│   ├── Pages.php            Fabrique les pages : ce que toutes les vues ont en commun
+│   ├── Visiteur.php         Ce qu'on sait du visiteur : son nom, ses messages
 │   ├── ConnexionRequise.php Le middleware qui garde les pages réservées
 │   ├── PageController.php       L'accueil, et une panne volontaire
 │   ├── ConnexionController.php  Se connecter, se déconnecter
