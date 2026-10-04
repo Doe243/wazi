@@ -10,6 +10,7 @@ use Wazi\Http\Response;
 use Wazi\Http\Session;
 use Wazi\Routing\Attribute\Get;
 use Wazi\Routing\Attribute\Post;
+use Wazi\Validation\Validator;
 use Wazi\View\Kioo;
 
 /**
@@ -42,11 +43,14 @@ final readonly class ConnexionController
     {
         // Arrivé ici, le jeton du formulaire a déjà été vérifié par Wazi
         // (CsrfProtection) : ce formulaire vient bien d'une page de ce site.
-        $formulaire = (array) $request->getParsedBody();
-        $nom = is_string($formulaire['nom'] ?? null) ? trim($formulaire['nom']) : '';
-        $motDePasse = is_string($formulaire['mot_de_passe'] ?? null) ? $formulaire['mot_de_passe'] : '';
+        $v = new Validator($request->getParsedBody());
+        $nom = $v->text('nom', max: 80);
+        // min: 1 : à la connexion, on ne juge pas la solidité du mot de passe,
+        // on le compare. La longueur minimale se vérifie à l'inscription.
+        $motDePasse = $v->password('mot_de_passe', min: 1);
+        $seSouvenir = $v->checkbox('se_souvenir');
 
-        if (!$this->comptes->verifier($nom, $motDePasse)) {
+        if ($v->fails() || !$this->comptes->verifier($nom, $motDePasse)) {
             // Le message ne dit pas si c'est le nom ou le mot de passe qui est
             // faux : ce serait dire à un inconnu quels comptes existent.
             // Le mot de passe saisi n'est jamais renvoyé dans la page.
@@ -59,7 +63,7 @@ final readonly class ConnexionController
         $this->session->set('utilisateur', $nom);
 
         // « Se souvenir de moi » : seulement si le visiteur a coché la case.
-        if (($formulaire['se_souvenir'] ?? null) === '1') {
+        if ($seSouvenir) {
             $this->session->remember(30);
         }
 

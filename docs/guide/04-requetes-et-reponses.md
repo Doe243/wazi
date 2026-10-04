@@ -35,6 +35,8 @@ $titre = is_string($formulaire['titre'] ?? null) ? trim($formulaire['titre']) : 
 
 Un champ nommé `titre[]` dans un formulaire arrive comme un tableau : sans `is_string()`, `trim()` échouerait.
 
+Pour un formulaire, le `Validator` fait ces vérifications pour vous, champ par champ : voir [Les formulaires](09-formulaires.md).
+
 ### Du JSON
 
 `getParsedBody()` ne contient que les champs d'un formulaire HTML. Pour une requête JSON, décodez le contenu vous-même :
