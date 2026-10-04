@@ -1,6 +1,6 @@
 # 12. Mettre en ligne
 
-Le serveur de développement (`php wazi serve`) sert à développer, pas à recevoir des visiteurs. En ligne, il faut un vrai serveur web, et quelques réglages.
+Le serveur de développement (`wazi serve`) sert à développer, pas à recevoir des visiteurs. En ligne, il faut un vrai serveur web, et quelques réglages.
 
 ## La liste de contrôle
 

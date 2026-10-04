@@ -79,7 +79,7 @@ mon-projet/
 ├── views/             Vos templates Kioo
 ├── var/               Ce que l'application écrit : sessions, fichiers
 ├── .env               Vos réglages et vos secrets (jamais partagé)
-├── wazi               La console du projet : « php wazi »
+├── wazi               La console du projet : « wazi »
 └── vendor/            Les bibliothèques installées par Composer
 ```
 
@@ -88,7 +88,7 @@ La règle qui compte : **seul `public/` est visible depuis Internet**. Votre cod
 Avec ce rangement, le site se lance par la console de Wazi, qui sert le dossier public :
 
 ```bash
-php wazi serve
+wazi serve
 ```
 
 Voir [La console](13-console.md).
