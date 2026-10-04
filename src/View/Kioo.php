@@ -41,6 +41,17 @@ use Wazi\View\Expression\Evaluator;
  *
  * Il suffit d'avoir indiqué le dossier des vues au noyau : new Kernel(views: __DIR__ . '/../views').
  *
+ * Deux réglages se font une fois, au démarrage de l'application :
+ *
+ *     $kioo = $app->container->get(Kioo::class);
+ *
+ *     // Un filtre de plus : {prix | euros}
+ *     $kioo->addFilter('euros', fn (mixed $prix) => number_format((float) $prix, 2, ',', ' ') . ' €');
+ *
+ *     // Une variable que TOUS les templates voient, sans la passer à chaque page.
+ *     $kioo->share('annee', 2026);
+ *     $kioo->share('utilisateur', fn () => $session->get('utilisateur'));   // calculée au moment d'afficher
+ *
  * Le trajet d'un template, en étapes que vous pouvez ouvrir une à une :
  *
  *     nom du template
@@ -55,13 +66,25 @@ use Wazi\View\Expression\Evaluator;
  *     page HTML
  *
  * Rien n'est traduit en PHP ni gardé en cache sur le disque : le template est
- * lu et exécuté directement (ADR-019).
+ * lu et exécuté directement (ADR-019). Ce qui ne dépend d'aucune valeur est
+ * préparé dès la lecture, pour ne pas être recalculé à l'affichage (ADR-025).
  */
-final readonly class Kioo
+final class Kioo
 {
-    private TemplateLoader $loader;
+    /** Le nom d'un filtre ou d'une variable : des lettres, des chiffres et « _ ». */
+    private const string NAME = '/^[a-zA-Z_][a-zA-Z0-9_]*$/D';
 
-    private Renderer $renderer;
+    private readonly TemplateLoader $loader;
+
+    private Evaluator $evaluator;
+
+    /** @var array<string, \Closure> Les filtres disponibles dans les templates : nom => fonction. */
+    private array $filters;
+
+    /** @var array<string, mixed> Les variables partagées avec tous les templates (voir share()). */
+    private array $shared = [];
+
+    private readonly ?string $scriptNonce;
 
     /**
      * @param string|null             $viewsDirectory le dossier qui contient vos fichiers .kioo
@@ -69,21 +92,80 @@ final readonly class Kioo
      * @param CspNonce|null           $nonce          le jeton à poser sur les balises <script> de vos templates ; le noyau le fournit lui-même
      * @param CsrfToken|null          $csrf           le jeton à ajouter à vos formulaires ; le noyau le fournit lui-même
      */
-    public function __construct(?string $viewsDirectory = null, array $filters = [], ?CspNonce $nonce = null, ?CsrfToken $csrf = null)
+    public function __construct(?string $viewsDirectory = null, array $filters = [], ?CspNonce $nonce = null, private readonly ?CsrfToken $csrf = null)
     {
         $this->loader = new TemplateLoader($viewsDirectory);
-        $this->renderer = new Renderer(
-            new Evaluator([
-                ...Filters::defaults(),
-                ...$filters,
-                // Défini en dernier : aucun filtre de l'application ne peut prendre ce nom.
-                'unsafe_raw' => self::unsafeRaw(...),
-            ]),
-            $this->loader,
-            $nonce?->value,
-            $csrf,
-        );
+        $this->scriptNonce = $nonce?->value;
+        $this->filters = [
+            ...Filters::defaults(),
+            ...$filters,
+            // Défini en dernier : aucun filtre de l'application ne peut prendre ce nom.
+            'unsafe_raw' => self::unsafeRaw(...),
+        ];
+        $this->evaluator = new Evaluator($this->filters);
     }
+
+    // ------------------------------------------------------------------
+    // Régler Kioo, une fois, au démarrage
+    // ------------------------------------------------------------------
+
+    /**
+     * Ajoute un filtre : une fonction qui transforme une valeur avant son affichage.
+     *
+     *     $kioo->addFilter('euros', fn (mixed $prix) => number_format((float) $prix, 2, ',', ' ') . ' €');
+     *
+     *     {article.prix | euros}        12,50 €
+     *
+     * La fonction reçoit la valeur écrite à gauche de la barre, puis les
+     * arguments écrits entre parenthèses. Ce qu'elle retourne est échappé
+     * comme toute valeur affichée.
+     *
+     * @throws KiooException si le nom est mal formé, ou déjà pris par un autre filtre
+     */
+    public function addFilter(string $name, \Closure $filter): void
+    {
+        if (preg_match(self::NAME, $name) !== 1) {
+            throw KiooException::invalidName('filtre', $name);
+        }
+
+        // Sécurité : on ne remplace pas un filtre existant. Sinon, un filtre
+        // ajouté par mégarde pourrait prendre la place de « unsafe_raw ».
+        if (array_key_exists($name, $this->filters)) {
+            throw KiooException::filterAlreadyExists($name);
+        }
+
+        $this->filters[$name] = $filter;
+        $this->evaluator = new Evaluator($this->filters);
+    }
+
+    /**
+     * Partage une variable avec TOUS les templates : pages, mises en page et
+     * morceaux inclus. Utile pour ce que chaque page affiche (le nom du
+     * visiteur dans le bandeau, l'année dans le pied de page).
+     *
+     *     $kioo->share('annee', 2026);
+     *
+     * Si la valeur n'est connue qu'au moment d'afficher la page, donnez une
+     * fonction : elle est appelée une fois par page affichée.
+     *
+     *     $kioo->share('utilisateur', fn () => $session->get('utilisateur'));
+     *
+     * Une variable de même nom donnée à une page l'emporte sur celle-ci.
+     *
+     * @throws KiooException si le nom est mal formé
+     */
+    public function share(string $name, mixed $value): void
+    {
+        if (preg_match(self::NAME, $name) !== 1) {
+            throw KiooException::invalidName('variable', $name);
+        }
+
+        $this->shared[$name] = $value;
+    }
+
+    // ------------------------------------------------------------------
+    // Afficher
+    // ------------------------------------------------------------------
 
     /**
      * Produit la réponse HTML d'un template : c'est ce qu'un contrôleur retourne.
@@ -110,7 +192,9 @@ final readonly class Kioo
      */
     public function render(string $name, array $variables = []): string
     {
-        return $this->renderer->render($this->loader->load($name), $variables, $name);
+        $renderer = $this->renderer();
+
+        return $renderer->render($this->loader->load($name), [...$renderer->shared, ...$variables], $name);
     }
 
     /**
@@ -123,7 +207,24 @@ final readonly class Kioo
      */
     public function renderString(string $source, array $variables = [], string $name = 'template'): string
     {
-        return $this->renderer->render($this->loader->parse($source, $name), $variables, $name);
+        $renderer = $this->renderer();
+
+        return $renderer->render($this->loader->parse($source, $name), [...$renderer->shared, ...$variables], $name);
+    }
+
+    /**
+     * Ce qui écrit une page. Les variables partagées sont calculées ici, une
+     * fois pour toute la page : mise en page et morceaux inclus reçoivent les mêmes.
+     */
+    private function renderer(): Renderer
+    {
+        $shared = [];
+
+        foreach ($this->shared as $name => $value) {
+            $shared[$name] = $value instanceof \Closure ? $value() : $value;
+        }
+
+        return new Renderer($this->evaluator, $this->loader, $this->scriptNonce, $this->csrf, $shared);
     }
 
     /**

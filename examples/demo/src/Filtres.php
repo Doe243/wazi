@@ -13,22 +13,15 @@ namespace Demo;
  *     {note.creee | depuis}        il y a 3 h
  *     {utilisateur | initiale}     A
  *
- * Ils sont donnés à Kioo dans public/index.php. Un template ne peut appeler
- * que les filtres de Kioo et ceux-ci : aucune fonction de PHP.
+ * Ils sont ajoutés à Kioo dans public/index.php :
+ *
+ *     $kioo->addFilter('depuis', Filtres::depuis(...));
+ *
+ * Un template ne peut appeler que les filtres de Kioo et ceux-ci : aucune
+ * fonction de PHP.
  */
 final class Filtres
 {
-    /**
-     * @return array<string, \Closure>
-     */
-    public static function tous(): array
-    {
-        return [
-            'depuis' => self::depuis(...),
-            'initiale' => self::initiale(...),
-        ];
-    }
-
     /**
      * Le temps écoulé depuis une date, en mots : « à l'instant », « il y a 3 h », « hier ».
      * Au-delà d'une semaine, la date elle-même.

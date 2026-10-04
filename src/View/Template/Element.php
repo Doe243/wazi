@@ -36,7 +36,12 @@ final readonly class Element implements TemplateNode
         public ?Loop $loop = null,
         public bool $isElse = false,
         public ?self $otherwise = null,
-    ) {}
+    ) {
+        $this->lowerName = strtolower($name);
+    }
+
+    /** Le nom de la balise sans tenir compte des majuscules, calculé une fois. */
+    private string $lowerName;
 
     /**
      * La même balise, à laquelle on rattache sa balise k:else.
@@ -51,7 +56,7 @@ final readonly class Element implements TemplateNode
      */
     public function lowerName(): string
     {
-        return strtolower($this->name);
+        return $this->lowerName;
     }
 
     /**

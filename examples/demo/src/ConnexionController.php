@@ -10,6 +10,7 @@ use Wazi\Http\Response;
 use Wazi\Http\Session;
 use Wazi\Routing\Attribute\Get;
 use Wazi\Routing\Attribute\Post;
+use Wazi\View\Kioo;
 
 /**
  * Se connecter, se déconnecter.
@@ -23,7 +24,7 @@ use Wazi\Routing\Attribute\Post;
  */
 final readonly class ConnexionController
 {
-    public function __construct(private Pages $pages, private Session $session, private Comptes $comptes) {}
+    public function __construct(private Kioo $kioo, private Session $session, private Comptes $comptes) {}
 
     #[Get('/connexion')]
     public function formulaire(ServerRequestInterface $request): ResponseInterface
@@ -33,7 +34,7 @@ final readonly class ConnexionController
         // ce que contient l'adresse n'est jamais recopié dans la page.
         $renvoye = array_key_exists('retour', $request->getQueryParams());
 
-        return $this->pages->page('connexion', ['nom' => '', 'renvoye' => $renvoye]);
+        return $this->kioo->page('connexion', ['nom' => '', 'renvoye' => $renvoye]);
     }
 
     #[Post('/connexion')]
@@ -49,7 +50,7 @@ final readonly class ConnexionController
             // Le message ne dit pas si c'est le nom ou le mot de passe qui est
             // faux : ce serait dire à un inconnu quels comptes existent.
             // Le mot de passe saisi n'est jamais renvoyé dans la page.
-            return $this->pages->page('connexion', ['nom' => $nom, 'renvoye' => false, 'erreur' => 'Nom ou mot de passe incorrect.'], 422);
+            return $this->kioo->page('connexion', ['nom' => $nom, 'renvoye' => false, 'erreur' => 'Nom ou mot de passe incorrect.'], 422);
         }
 
         // Un identifiant de session tout neuf : si quelqu'un avait réussi à

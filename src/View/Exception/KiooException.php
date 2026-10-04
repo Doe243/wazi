@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Wazi\View\Exception;
 
+use Wazi\Http\Exception\ValuePreview;
+
 /**
  * Levée quand un template Kioo est mal écrit, ou qu'une expression ne peut pas être calculée.
  *
@@ -121,6 +123,25 @@ final class KiooException extends \RuntimeException
             'La valeur de k:for est mal écrite. Elle se lit « un élément dans une liste » :'
             . ' k:for="note in notes". Pour avoir aussi le numéro ou la clé : k:for="numero, note in notes".',
         );
+    }
+
+    public static function invalidName(string $what, string $name): self
+    {
+        return new self(sprintf(
+            'Le nom de %s « %s » n\'est pas utilisable dans un template. Un nom commence par une lettre et ne'
+            . ' contient que des lettres sans accent, des chiffres et « _ » : par exemple « prix_total ».',
+            $what,
+            ValuePreview::of($name),
+        ));
+    }
+
+    public static function filterAlreadyExists(string $name): self
+    {
+        return new self(sprintf(
+            'Le filtre « %s » existe déjà : Kioo ne remplace pas un filtre par un autre, pour qu\'un template ne'
+            . ' change pas de comportement sans que cela se voie. Donnez un autre nom au vôtre.',
+            $name,
+        ));
     }
 
     public static function elseWithoutIf(): self

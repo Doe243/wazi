@@ -6,18 +6,19 @@ namespace Demo;
 
 use Psr\Http\Message\ResponseInterface;
 use Wazi\Routing\Attribute\Get;
+use Wazi\View\Kioo;
 
 /**
  * Les pages que tout le monde peut voir.
  */
 final readonly class PageController
 {
-    public function __construct(private Pages $pages) {}
+    public function __construct(private Kioo $kioo) {}
 
     #[Get('/')]
     public function accueil(): ResponseInterface
     {
-        return $this->pages->page('accueil');
+        return $this->kioo->page('accueil');
     }
 
     /**

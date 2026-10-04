@@ -112,6 +112,6 @@ final class FiltersTest extends TestCase
     {
         $names = array_keys(Filters::defaults());
 
-        self::assertSame(['upper', 'lower', 'capitalize', 'trim', 'length', 'number', 'date', 'join', 'first', 'last', 'json'], $names);
+        self::assertSame(['upper', 'lower', 'capitalize', 'trim', 'length', 'number', 'date', 'join', 'first', 'last', 'json', 'url'], $names);
     }
 }

@@ -43,7 +43,7 @@ final class KiooStructuresTest extends TestCase
         yield 'sinon, séparé par un commentaire, condition vraie' => ['<p k:if="actif">oui</p><!-- sinon --><p k:else>non</p>', '<p>oui</p>'];
         yield 'sinon, séparé par deux commentaires' => ['<p k:if="inactif">oui</p> <!-- a --> <!-- b --> <p k:else>non</p>', '<p>non</p>'];
         yield 'liste vide, sinon après un commentaire' => ['<li k:for="note in aucune">{note}</li><!-- liste vide --><li k:else>Aucune.</li>', '<li>Aucune.</li>'];
-        yield 'un commentaire ailleurs est gardé' => ['<!-- avant --><p k:if="actif">oui</p><p k:else>non</p><!-- après -->', '<!-- avant --><p>oui</p><!-- après -->'];
+        yield 'les commentaires voisins ne sont pas écrits' => ['<!-- avant --><p k:if="actif">oui</p><p k:else>non</p><!-- après -->', '<p>oui</p>'];
         yield 'sinon sur une autre sorte de balise' => ['<strong k:if="inactif">oui</strong><em k:else>non</em>', '<em>non</em>'];
         yield 'ce qui suit le sinon est écrit dans les deux cas' => ['<p k:if="actif">oui</p><p k:else>non</p><hr>', '<p>oui</p><hr>'];
 

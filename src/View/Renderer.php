@@ -11,6 +11,7 @@ use Wazi\View\Template\Attribute;
 use Wazi\View\Template\Element;
 use Wazi\View\Template\Interpolation;
 use Wazi\View\Template\Raw;
+use Wazi\View\Template\StaticElement;
 use Wazi\View\Template\TemplateNode;
 use Wazi\View\Template\Text;
 
@@ -41,7 +42,8 @@ use Wazi\View\Template\Text;
  * Sécurité (ADR-019) :
  *   - aucune valeur n'est écrite sans échappement, sauf par le filtre
  *     « unsafe_raw », dans le texte uniquement ;
- *   - un template inclus ne voit que les variables qu'on lui passe.
+ *   - un template inclus ne voit que les variables qu'on lui passe, et celles
+ *     que l'application partage avec tous les templates.
  */
 final readonly class Renderer
 {
@@ -52,14 +54,16 @@ final readonly class Renderer
     private const string CONTENT_BLOCK = 'content';
 
     /**
-     * @param string|null  $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
-     * @param CsrfToken|null $csrf      le jeton de protection à ajouter aux formulaires, ou null
+     * @param string|null          $scriptNonce le jeton à poser sur les balises <script> des templates (voir CspNonce), ou null
+     * @param CsrfToken|null       $csrf        le jeton de protection à ajouter aux formulaires, ou null
+     * @param array<string, mixed> $shared      les variables que tous les templates voient, morceaux inclus compris
      */
     public function __construct(
         private Evaluator $evaluator,
         private TemplateLoader $loader,
         private ?string $scriptNonce = null,
         private ?CsrfToken $csrf = null,
+        public array $shared = [],
     ) {}
 
     /**
@@ -129,21 +133,25 @@ final readonly class Renderer
     private function renderNodes(array $nodes, array $variables, string $template, array $blocks, int $depth): string
     {
         $html = '';
-
-        // Le retour à la ligne et l'indentation qui précèdent une balise : une
-        // boucle les répète entre ses tours, pour que la page produite garde
-        // une balise par ligne.
-        $indentation = '';
+        $previous = null;
 
         foreach ($nodes as $node) {
-            $html .= match (true) {
-                $node instanceof Raw => $node->source,
-                $node instanceof Text => $this->renderText($node, $variables, $template),
-                $node instanceof Element => $this->renderStructure($node, $variables, $template, $blocks, $depth, $indentation),
-                default => '',
-            };
+            if ($node instanceof StaticElement) {
+                // Rien à calculer : la balise a été écrite à la lecture du template.
+                $html .= $node->html;
+            } elseif ($node instanceof Text) {
+                $html .= $this->renderText($node, $variables, $template);
+            } elseif ($node instanceof Element) {
+                // Le retour à la ligne et l'indentation qui précèdent une
+                // boucle : elle les répète entre ses tours, pour que la page
+                // produite garde une balise par ligne.
+                $indentation = $node->loop !== null && $previous instanceof Text ? self::trailingIndentation($previous) : '';
+                $html .= $this->renderStructure($node, $variables, $template, $blocks, $depth, $indentation);
+            } elseif ($node instanceof Raw) {
+                $html .= $node->source;
+            }
 
-            $indentation = $node instanceof Text ? self::trailingIndentation($node) : '';
+            $previous = $node;
         }
 
         return $html;
@@ -343,7 +351,8 @@ final readonly class Renderer
      * <k:include file="pied" annee="{2026}"> : écrit ici un autre template.
      *
      * Sécurité : le template inclus ne reçoit QUE les attributs écrits sur la
-     * balise. Il ne voit aucune des variables de la page qui l'inclut.
+     * balise. Il ne voit aucune des variables de la page qui l'inclut, hormis
+     * celles que l'application a partagées avec tous les templates (Kioo::share()).
      *
      * @param array<string, mixed> $variables
      */
@@ -354,7 +363,7 @@ final readonly class Renderer
         }
 
         $file = (string) $element->staticAttribute('file');
-        $given = [];
+        $given = $this->shared;
 
         foreach ($element->attributes as $attribute) {
             if ($attribute->name !== 'file') {
@@ -462,6 +471,11 @@ final readonly class Renderer
      */
     private function renderAttribute(Attribute $attribute, array $variables, string $template): string
     {
+        // Un attribut sans affichage a été écrit à la lecture du template.
+        if ($attribute->static !== null) {
+            return $attribute->static;
+        }
+
         if ($attribute->parts === null) {
             return ' ' . $attribute->name;
         }
@@ -541,6 +555,11 @@ final readonly class Renderer
         foreach ($nodes as $node) {
             if ($node instanceof Element) {
                 return $node->lowerName() === 'k:layout' ? $node : null;
+            }
+
+            // Une autre balise vient en premier : pas de mise en page.
+            if ($node instanceof StaticElement) {
+                return null;
             }
         }
 

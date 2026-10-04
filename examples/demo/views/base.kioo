@@ -53,11 +53,13 @@
 </header>
 
 <main id="contenu">
-    <k:include file="partiels/messages" messages="{messages}">
+    <!-- « messages », « utilisateur » et « annee » ne sont passés par aucun contrôleur :
+         public/index.php les partage avec tous les templates (Kioo::share). -->
+    <k:include file="partiels/messages">
     <k:block name="content"></k:block>
 </main>
 
-<k:include file="partiels/pied" annee="{annee}">
+<k:include file="partiels/pied">
 
 <!-- La fenêtre de confirmation, ouverte par app.js avant une suppression. -->
 <dialog id="confirmation" class="fenetre">

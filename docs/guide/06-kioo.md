@@ -107,6 +107,7 @@ Un filtre transforme une valeur avant de l'afficher. Il s'écrit après une barr
 | `join` | `{notes \| join(' et ')}` | `Pain et Lait` |
 | `first`, `last` | `{notes \| first}` | le premier, le dernier élément |
 | `json` | `data-points="{points \| json}"` | la valeur écrite en JSON, pour un attribut |
+| `url` | `href="/recherche?q={mots \| url}"` | le texte préparé pour entrer dans une adresse |
 
 Le filtre `date` attend un objet `DateTime` ou `DateTimeImmutable`. Son format est celui de PHP : `d` (jour), `m` (mois), `Y` (année), `H` (heures), `i` (minutes).
 
@@ -122,21 +123,23 @@ Les filtres s'enchaînent : `{titre | trim | upper}`.
 
 ### Vos propres filtres
 
-Un filtre est une fonction. Pour en ajouter, expliquez au conteneur comment fabriquer Kioo :
+Un filtre est une fonction. Ajoutez-la dans `public/index.php`, après avoir créé le noyau :
 
 ```php
-use Wazi\Container\Container;
-use Wazi\Http\CspNonce;
-use Wazi\Http\CsrfToken;
 use Wazi\View\Kioo;
 
-$app->container->set(Kioo::class, fn (Container $c) => new Kioo(
-    __DIR__ . '/../views',
-    ['euro' => fn (mixed $valeur): string => number_format((float) $valeur, 2, ',', ' ') . ' €'],
-    $c->get(CspNonce::class),
-    $c->get(CsrfToken::class),
-));
+$kioo = $app->container->get(Kioo::class);
+
+$kioo->addFilter('euros', fn (mixed $prix): string => number_format((float) $prix, 2, ',', ' ') . ' €');
 ```
+
+```html
+{article.prix | euros}
+```
+
+La fonction reçoit la valeur écrite à gauche de la barre, puis les arguments écrits entre parenthèses. Ce qu'elle retourne est échappé comme toute valeur affichée.
+
+Un filtre ne peut pas en remplacer un autre : son nom doit être libre.
 
 Un template ne peut appeler **que** les filtres de cette liste et les vôtres. Aucune fonction de PHP n'est accessible depuis un template.
 
@@ -192,7 +195,11 @@ Une valeur s'affiche aussi dans un attribut :
 
 **Adresses.** Dans `href`, `src` et les attributs du même genre, Kioo vérifie le protocole. Une adresse dangereuse (`javascript:...`) devient `#`.
 
-Kioo échappe une valeur pour le HTML, pas pour une adresse : il ne remplace pas les espaces ou les `&` d'un texte placé après un `?`. Pour passer un texte libre dans une adresse, encodez-le dans le contrôleur avec `rawurlencode()`.
+Kioo échappe une valeur pour le HTML, pas pour une adresse. Un texte libre placé dans une adresse passe par le filtre `url`, qui remplace les espaces, les `&`, les `#` :
+
+```html
+<a href="/recherche?q={mots | url}">Chercher « {mots} »</a>
+```
 
 **Attributs d'événement.** Afficher une valeur dans `onclick`, `onload`... est refusé : à cet endroit, aucun échappement ne protège la page. Mettez le script dans un fichier `.js` et passez la valeur par un attribut `data-` : `data-id="{note.id}"`.
 
@@ -230,9 +237,29 @@ Les règles :
 
 - `<k:layout>` est la première chose du fichier ; une mise en page n'en utilise pas une autre ;
 - un emplacement que la page ne remplit pas garde son contenu par défaut ;
-- la mise en page reçoit les mêmes variables que la page. Comme Kioo est strict, **toute variable que la mise en page affiche doit être donnée par chaque page** (dans l'exemple : `annee`).
+- la mise en page reçoit les mêmes variables que la page.
 
-Pour ne pas répéter ces variables communes dans chaque contrôleur, écrivez un petit service qui les ajoute. La démonstration le fait dans [`src/Pages.php`](../../examples/demo/src/Pages.php).
+### Les variables que toutes les pages affichent
+
+La mise en page affiche souvent des valeurs communes : le nom du visiteur dans le bandeau, l'année dans le pied de page. Plutôt que de les passer depuis chaque contrôleur, partagez-les une fois, dans `public/index.php` :
+
+```php
+$kioo = $app->container->get(Kioo::class);
+
+$kioo->share('annee', (int) date('Y'));
+```
+
+Tous les templates voient alors `{annee}` : pages, mises en page et morceaux inclus.
+
+Quand la valeur n'est connue qu'au moment d'afficher la page (elle dépend de la session, par exemple), donnez une fonction. Elle est appelée une fois par page affichée :
+
+```php
+$session = $app->container->get(Session::class);
+
+$kioo->share('utilisateur', fn () => $session->get('utilisateur'));
+```
+
+Une variable de même nom donnée à une page l'emporte sur la variable partagée. La démonstration s'en sert dans [`public/index.php`](../../examples/demo/public/index.php).
 
 ### Inclure un morceau
 
@@ -240,7 +267,7 @@ Pour ne pas répéter ces variables communes dans chaque contrôleur, écrivez u
 <k:include file="partiels/pied" annee="{annee}">
 ```
 
-Le template inclus **ne voit que ce qu'on lui passe** par les attributs : ici, la seule variable `annee`. On sait ainsi, en lisant la ligne, de quoi le morceau dépend.
+Le template inclus **ne voit que ce qu'on lui passe** par les attributs (ici, `annee`), plus les variables partagées avec `share()`. On sait ainsi, en lisant la ligne, de quoi le morceau dépend.
 
 Les noms de `file` et de `name` s'écrivent en dur : ils ne peuvent pas venir d'une valeur. Un template ne peut pas sortir du dossier des vues.
 
@@ -288,6 +315,15 @@ Pour afficher du HTML que **vous** avez produit et que vous savez sûr :
 
 Le nom est long et inquiétant exprès : tout ce qui passe par là est exécuté par le navigateur tel quel. N'y mettez jamais un texte saisi par un visiteur sans l'avoir nettoyé.
 
+## Les commentaires
+
+```html
+<!-- À revoir : la liste devrait être triée par date. -->
+<ul>
+```
+
+Un commentaire d'un template s'adresse à vous, pas au visiteur : **il n'est jamais écrit dans la page**. Vous pouvez donc expliquer un template autant que vous le voulez, sans alourdir la page ni renseigner quelqu'un qui lirait son code source.
+
 ## Quand un template est faux
 
 L'erreur donne le nom du template, la ligne, ce qui ne va pas, et souvent la correction :
@@ -299,6 +335,8 @@ Vouliez-vous écrire « upper » ? Filtres disponibles : capitalize, date, first
 
 ## Ce que Kioo ne fait pas encore
 
-Kioo est plus simple et plus sûr que les moteurs les plus connus, pas plus puissant. Il n'a pas encore : de composants réutilisables avec emplacements, de traduction, d'opérateur pour coller deux textes, ni de cache (un template est relu à chaque requête).
+Kioo est plus simple et plus sûr que les moteurs les plus connus, pas plus puissant. Il n'a pas encore : de composants réutilisables avec emplacements, de traduction, ni d'opérateur pour coller deux textes.
+
+Côté vitesse : un template est relu et analysé à chaque requête, ce qui prend quelques millisecondes par page. C'est suffisant pour la plupart des sites ; un moyen de l'éviter est à l'étude.
 
 Suite : [La configuration](07-configuration.md).

@@ -29,7 +29,7 @@ final class KiooTest extends TestCase
         yield 'attribut sans guillemets' => ['<input type=text maxlength=10>'];
         yield 'balises sans contenu' => ['<p>Ligne 1<br>Ligne 2</p><img src="a.png" alt=""><hr>'];
         yield 'balise auto-fermante' => ['<br />'];
-        yield 'doctype et commentaire' => ["<!DOCTYPE html>\n<!-- un commentaire avec {accolades} -->\n<html lang=\"fr\"></html>"];
+        yield 'doctype' => ["<!DOCTYPE html>\n<html lang=\"fr\"></html>"];
         yield 'entités' => ['<p>Fromage &amp; dessert &lt;3 &copy; 2026</p>'];
         yield 'entités dans un attribut' => ['<a href="/recherche?a=1&amp;b=2">Chercher</a>'];
         yield 'signe plus petit dans le texte' => ['<p>3 < 4 et 5 > 2</p>'];
@@ -79,7 +79,7 @@ final class KiooTest extends TestCase
         yield 'accolade écrite telle quelle dans un attribut' => ['<p title="\{x}">y</p>', '<p title="{x}">y</p>'];
         yield 'barre inversée ordinaire' => ['<p>C:\Sites\wazi</p>', '<p>C:\Sites\wazi</p>'];
         yield 'accolades dans un script : jamais interprétées' => ['<script>var a = {titre};</script>', '<script>var a = {titre};</script>'];
-        yield 'accolades dans un commentaire : jamais interprétées' => ['<!-- {titre} -->', '<!-- {titre} -->'];
+        yield 'accolades dans un commentaire : jamais interprétées' => ['<p><!-- {titre} {inconnue} --></p>', '<p></p>'];
     }
 
     #[DataProvider('templates')]

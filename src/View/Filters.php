@@ -15,6 +15,7 @@ use Wazi\View\Exception\KiooException;
  *     {date | date('d/m/Y')}     03/10/2026
  *     {auteurs | join(', ')}     Alice, Bob
  *     {points | json}            [1,2,3]
+ *     {mots | url}               pain%20%26%20lait
  *
  * Un filtre reçoit la valeur à sa gauche, puis ses arguments. Il vérifie le
  * type de ce qu'il reçoit et le dit clairement quand il ne convient pas.
@@ -42,6 +43,7 @@ final class Filters
             'first' => static fn(mixed $value): mixed => self::edge('first', $value, true),
             'last' => static fn(mixed $value): mixed => self::edge('last', $value, false),
             'json' => self::json(...),
+            'url' => self::url(...),
         ];
     }
 
@@ -64,6 +66,24 @@ final class Filters
         } catch (\JsonException) {
             throw KiooException::filterExpects('json', 'une valeur qui peut s\'écrire en JSON (texte, nombre, liste, objet simple)', get_debug_type($value));
         }
+    }
+
+    /**
+     * Un texte préparé pour entrer dans une adresse :
+     *
+     *     <a href="/recherche?q={mots | url}">     « pain & lait »  devient  « pain%20%26%20lait »
+     *
+     * Sans ce filtre, un « & » ou un « # » écrit par un visiteur couperait
+     * l'adresse en deux. Kioo échappe pour le HTML, pas pour une adresse :
+     * c'est ce filtre qui s'en charge.
+     */
+    private static function url(mixed $value): string
+    {
+        if (!is_string($value) && !is_int($value) && !is_float($value)) {
+            throw KiooException::filterExpects('url', 'un texte ou un nombre', get_debug_type($value));
+        }
+
+        return rawurlencode((string) $value);
     }
 
     /**
