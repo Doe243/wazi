@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wazi\Console\Command;
 
 use Wazi\Console\Application;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Option;
 use Wazi\Console\Output;
@@ -27,7 +27,7 @@ use Wazi\Console\Output;
  *     utilisé : rien de ce qui est tapé ne peut devenir une autre commande ;
  *   - seul le dossier public/ est servi.
  */
-final readonly class ServeCommand implements Command
+final readonly class ServeCommand implements DetailedCommand
 {
     /** Un nom d'hôte ou une adresse IPv4 : lettres, chiffres, points et tirets. */
     private const string HOST = '/^[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?$/D';
@@ -67,6 +67,25 @@ final readonly class ServeCommand implements Command
         return [
             new Option('port', 'Le port sur lequel écouter', '8000'),
             new Option('host', 'L\'adresse sur laquelle écouter ; à changer seulement en connaissance de cause', 'localhost'),
+        ];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Lance le serveur web intégré à PHP sur le dossier public/ de votre projet.',
+            'Pour l\'arrêter : Ctrl+C.',
+            '',
+            'Ce serveur est fait pour développer, pas pour un site en ligne. Il n\'écoute',
+            'que votre ordinateur (localhost) : personne d\'autre sur le réseau ne voit le site.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            '' => 'Le site, sur http://localhost:8000',
+            '--port=8080' => 'Le site, sur un autre port',
         ];
     }
 

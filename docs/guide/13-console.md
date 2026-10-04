@@ -30,26 +30,76 @@ Les deux écritures font exactement la même chose : la commande `wazi` install�
 
 ## La liste des commandes
 
-Sans rien d'autre, la console liste ses commandes :
+Sans rien d'autre, la console affiche son écran d'accueil : la version de Wazi, puis les commandes, rangées par famille.
 
 ```text
-La console de Wazi
+██╗    ██╗ █████╗ ███████╗██╗
+██║    ██║██╔══██╗╚══███╔╝██║
+██║ █╗ ██║███████║  ███╔╝ ██║
+██║███╗██║██╔══██║ ███╔╝  ██║
+╚███╔███╔╝██║  ██║███████╗██║
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝
 
-Utilisation : wazi <commande> [arguments] [--options]
+Wazi 0.5.0 · le framework PHP où tout est clair
+
+Utilisation :
+  wazi <commande> [arguments] [--options]
+
+Options :
+  --help  Explique une commande, sans l'exécuter : wazi serve --help
 
 Commandes :
-  db:migrate       Applique les migrations en attente : crée ou modifie les tables de la base.
-  db:status        Montre les migrations faites et celles qui restent à appliquer.
   explain          Explique ce qu'une adresse traverse : route, middlewares, contrôleur.
-  make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
-  make:migration   Crée un fichier de migration : un changement de la structure de la base, en SQL.
   messages         Affiche les messages reçus par le formulaire de contact.
   routes           Liste les routes de l'application : adresse, code exécuté, middlewares.
   serve            Lance le site sur votre ordinateur, pour développer.
+ db
+  db:migrate       Applique les migrations en attente : crée ou modifie les tables de la base.
+  db:status        Montre les migrations faites et celles qui restent à appliquer.
+ make
+  make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
+  make:migration   Crée un fichier de migration : un changement de la structure de la base, en SQL.
+ views
   views:compile    Prépare les templates à l'avance, pour la mise en ligne.
 
 Pour le détail d'une commande : wazi <commande> --help
 ```
+
+Une **famille** est ce qui précède les deux-points dans le nom d'une commande : `db:migrate` et `db:status` sont de la famille `db`. Nommez vos commandes de la même façon (`facture:envoyer`, `facture:relancer`) et elles se rangeront ensemble.
+
+## Le détail d'une commande
+
+Ajoutez `--help` à n'importe quelle commande. Elle n'est pas exécutée : la console dit ce qu'elle fait et comment l'écrire.
+
+```bash
+wazi explain --help
+```
+
+```text
+Description :
+  Explique ce qu'une adresse traverse : route, middlewares, contrôleur.
+
+Utilisation :
+  wazi explain <adresse> [--options]
+
+Arguments :
+  adresse  Le chemin à expliquer : /notes/42, ou notes/42
+
+Options :
+  --method=…  La méthode de la requête : GET, POST, PUT, PATCH, DELETE (par défaut : GET)
+  --help      Affiche cette aide, sans exécuter la commande
+
+Exemples :
+  wazi explain notes/3                Ce que traverse GET /notes/3
+  wazi explain contact --method=POST  Ce que traverse l'envoi du formulaire de contact
+
+Aide :
+  Montre la route choisie, les étapes traversées dans l'ordre, le code exécuté
+  et d'où vient chacun de ses arguments.
+  ...
+```
+
+Un argument entre `<` et `>` est obligatoire ; entre crochets, il est facultatif.
 
 ## Lancer le site
 
@@ -306,6 +356,35 @@ if (!ctype_digit($input->option('fois'))) {
 }
 ```
 
+### Des exemples et un texte d'aide
+
+Pour que `wazi bonjour --help` montre aussi des exemples et un texte d'aide, la commande implémente `DetailedCommand` au lieu de `Command`, et ajoute deux méthodes :
+
+```php
+use Wazi\Console\DetailedCommand;
+
+final class BonjourCommand implements DetailedCommand
+{
+    // name(), description(), arguments(), options() et run() : comme avant.
+
+    public function help(): string
+    {
+        return "Salue la personne nommée.\nAvec --fort, le texte est écrit en majuscules.";
+    }
+
+    public function examples(): array
+    {
+        // Ce qu'on tape après le nom de la commande => ce que cela fait.
+        return [
+            'Alice' => 'Salue Alice',
+            'Alice --fort' => 'La même chose, en majuscules',
+        ];
+    }
+}
+```
+
+C'est facultatif : une commande qui n'implémente que `Command` fonctionne exactement pareil, avec une aide plus courte.
+
 ### Le code de sortie
 
 `run()` retourne un nombre, que le terminal et les outils d'automatisation lisent pour savoir si la commande a réussi :
@@ -326,6 +405,9 @@ if (!ctype_digit($input->option('fois'))) {
 | `$output->warning('…')` | ce qui mérite attention |
 | `$output->error('…')` | ce qui a échoué (écrit sur la sortie d'erreur) |
 | `$output->definitions([...])` | une liste à deux colonnes, alignée |
+| `$output->section('…')` | le nom d'une rubrique : « Options : » |
+| `$output->accent('…')` | une ligne mise en avant, dans la couleur de Wazi |
+| `$output->note('…')` | une ligne discrète : une précision, un rappel |
 
 La couleur vient de ces méthodes. Elle n'est utilisée que dans un terminal : rediriger la sortie vers un fichier donne du texte simple.
 

@@ -6,7 +6,7 @@ namespace Wazi\Console\Command;
 
 use Wazi\Console\Application;
 use Wazi\Console\Argument;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Option;
 use Wazi\Console\Output;
@@ -30,7 +30,7 @@ use Wazi\Console\Output;
  *     une majuscule en tête. Ni « / », ni « .. », ni espace ;
  *   - un fichier qui existe déjà n'est jamais remplacé.
  */
-final readonly class MakeControllerCommand implements Command
+final readonly class MakeControllerCommand implements DetailedCommand
 {
     /** Un nom de classe écrit en PascalCase : Article, BlogPost, Page2. */
     private const string NAME = '/^[A-Z][A-Za-z0-9]{0,60}$/D';
@@ -62,6 +62,25 @@ final readonly class MakeControllerCommand implements Command
     public function options(): array
     {
         return [new Option('no-comments', 'Écrire le code sans les commentaires d\'explication')];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Crée deux fichiers : le contrôleur dans src/, et sa page dans views/.',
+            'Le code créé est commenté : chaque ligne dit ce qu\'elle fait.',
+            '',
+            'Aucun fichier existant n\'est remplacé, et app.php n\'est pas modifié : la',
+            'commande affiche la ligne à y ajouter.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            'Article' => 'Crée src/ArticleController.php et views/article.kioo',
+            'BlogPost --no-comments' => 'Le même code, sans les explications',
+        ];
     }
 
     public function run(Input $input, Output $output): int

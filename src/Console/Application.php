@@ -27,7 +27,10 @@ use Wazi\Console\Exception\ConsoleException;
  *          ▼
  *     un code de sortie : 0 si tout va bien
  *
- * Sans nom de commande, elle affiche la liste. Avec --help, elle explique la commande.
+ * Sans nom de commande, elle affiche son écran d'accueil : le nom en grand, la
+ * version, et les commandes rangées par famille. Avec --help, elle explique
+ * une commande : description, écriture, arguments, options, et, si la
+ * commande les fournit (DetailedCommand), des exemples et un texte d'aide.
  *
  * Sécurité (ADR-006 et ADR-026) :
  *   - elle refuse de s'exécuter hors d'un terminal : appelée par un serveur
@@ -45,16 +48,31 @@ final class Application
     /** La commande a été mal écrite (nom inconnu, option en trop...). */
     public const int USAGE_ERROR = 2;
 
+    /** « Wazi », en grand : la première chose qu'on voit en tapant « wazi ». */
+    private const array BANNER = [
+        '██╗    ██╗ █████╗ ███████╗██╗',
+        '██║    ██║██╔══██╗╚══███╔╝██║',
+        '██║ █╗ ██║███████║  ███╔╝ ██║',
+        '██║███╗██║██╔══██║ ███╔╝  ██║',
+        '╚███╔███╔╝██║  ██║███████╗██║',
+        ' ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝',
+    ];
+
     private const string COMMAND_NAME = '/^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*$/D';
 
     /** @var array<string, Command> */
     private array $commands = [];
 
     /**
-     * @param string $name ce qu'on tape pour lancer la console, cité dans l'aide
-     * @param string $sapi la façon dont PHP a été lancé ; « cli » dans un terminal
+     * @param string      $name    ce qu'on tape pour lancer la console, cité dans l'aide
+     * @param string      $sapi    la façon dont PHP a été lancé ; « cli » dans un terminal
+     * @param string|null $version la version à afficher ; par défaut, celle de Wazi que Composer a installée
      */
-    public function __construct(private readonly string $name = 'wazi', private readonly string $sapi = PHP_SAPI) {}
+    public function __construct(
+        private readonly string $name = 'wazi',
+        private readonly string $sapi = PHP_SAPI,
+        private readonly ?string $version = null,
+    ) {}
 
     /**
      * @throws ConsoleException si le nom de la commande est mal formé, ou déjà pris
@@ -133,10 +151,25 @@ final class Application
     // Aide
     // ------------------------------------------------------------------
 
+    /**
+     * L'écran d'accueil : le nom en grand, la version, puis les commandes,
+     * rangées par famille (« db: », « make: »...).
+     */
     private function showList(Output $output): void
     {
-        $output->title('La console de Wazi');
-        $output->line('Utilisation : ' . $this->name . ' <commande> [arguments] [--options]');
+        foreach (self::BANNER as $line) {
+            $output->accent($line);
+        }
+
+        $output->line();
+        $output->title('Wazi ' . $this->version() . ' · le framework PHP où tout est clair');
+
+        $output->section('Utilisation :');
+        $output->line('  ' . $this->name . ' <commande> [arguments] [--options]');
+        $output->line();
+
+        $output->section('Options :');
+        $output->definitions(['--help' => 'Explique une commande, sans l\'exécuter : ' . $this->name . ' serve --help']);
         $output->line();
 
         if ($this->commands === []) {
@@ -145,16 +178,42 @@ final class Application
             return;
         }
 
-        $output->line('Commandes :');
-        $output->definitions(array_map(static fn(Command $command): string => $command->description(), $this->commands));
+        // « db:migrate » appartient à la famille « db » ; « serve » n'en a pas.
+        $families = [];
+        $width = 0;
+
+        foreach ($this->commands as $name => $command) {
+            $family = str_contains($name, ':') ? strstr($name, ':', true) : '';
+            $families[$family][$name] = $command->description();
+            $width = max($width, mb_strlen($name));
+        }
+
+        // Les commandes sans famille d'abord, puis les familles dans l'ordre alphabétique.
+        uksort($families, static fn(int|string $a, int|string $b): int => [$a !== '', (string) $a] <=> [$b !== '', (string) $b]);
+
+        $output->section('Commandes :');
+
+        foreach ($families as $family => $commands) {
+            if ($family !== '') {
+                $output->section(' ' . $family);
+            }
+
+            // La même largeur pour toutes les familles : les descriptions s'alignent.
+            $output->definitions($commands, $width);
+        }
+
         $output->line();
-        $output->line('Pour le détail d\'une commande : ' . $this->name . ' <commande> --help');
+        $output->note('Pour le détail d\'une commande : ' . $this->name . ' <commande> --help');
     }
 
+    /**
+     * L'aide d'une commande : ce qu'elle fait, comment l'écrire, ce qu'elle accepte.
+     */
     private function showHelp(Command $command, Output $output): void
     {
         $usage = $this->name . ' ' . $command->name();
         $arguments = [];
+        // --help existe pour toutes les commandes : elle est listée avec les autres.
         $options = [];
 
         foreach ($command->arguments() as $argument) {
@@ -168,19 +227,66 @@ final class Application
                 . ($option->isFlag() ? '' : ' (par défaut : ' . $option->default . ')');
         }
 
-        $output->title($command->description());
-        $output->line('Utilisation : ' . $usage . ($options !== [] ? ' [--options]' : ''));
+        $usage .= $options !== [] ? ' [--options]' : '';
+        $options['--help'] = 'Affiche cette aide, sans exécuter la commande';
+
+        $output->section('Description :');
+        $output->line('  ' . $command->description());
+        $output->line();
+
+        $output->section('Utilisation :');
+        $output->line('  ' . $usage);
 
         if ($arguments !== []) {
             $output->line();
-            $output->line('Arguments :');
+            $output->section('Arguments :');
             $output->definitions($arguments);
         }
 
-        if ($options !== []) {
-            $output->line();
-            $output->line('Options :');
-            $output->definitions($options);
+        $output->line();
+        $output->section('Options :');
+        $output->definitions($options);
+
+        if (!$command instanceof DetailedCommand) {
+            return;
         }
+
+        if ($command->examples() !== []) {
+            $examples = [];
+
+            foreach ($command->examples() as $typed => $meaning) {
+                $examples[rtrim($this->name . ' ' . $command->name() . ' ' . $typed)] = $meaning;
+            }
+
+            $output->line();
+            $output->section('Exemples :');
+            $output->definitions($examples);
+        }
+
+        if (trim($command->help()) !== '') {
+            $output->line();
+            $output->section('Aide :');
+
+            foreach (explode("\n", trim($command->help())) as $line) {
+                $output->line(rtrim('  ' . $line));
+            }
+        }
+    }
+
+    /**
+     * La version de Wazi installée, telle que Composer la connaît.
+     */
+    private function version(): string
+    {
+        if ($this->version !== null) {
+            return $this->version;
+        }
+
+        $version = class_exists(\Composer\InstalledVersions::class) && \Composer\InstalledVersions::isInstalled('wazi/framework')
+            ? \Composer\InstalledVersions::getPrettyVersion('wazi/framework')
+            : null;
+
+        // « dev-main » : le code du dépôt, pas une version publiée.
+        return $version === null || str_starts_with($version, 'dev-') ? '(version de développement)' : $version;
     }
 }

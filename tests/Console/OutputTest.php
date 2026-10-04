@@ -62,6 +62,25 @@ final class OutputTest extends TestCase
         );
     }
 
+    public function testSeveralListsCanShareTheSameWidth(): void
+    {
+        $output = $this->newOutput();
+        $output->definitions(['serve' => 'Lance le site.'], 15);
+        $output->definitions(['make:controller' => 'Crée un contrôleur.'], 15);
+
+        self::assertSame("  serve            Lance le site.\n  make:controller  Crée un contrôleur.\n", $this->written($this->standard));
+    }
+
+    public function testSectionsAccentsAndNotesAreOrdinaryLinesWithoutColor(): void
+    {
+        $output = $this->newOutput();
+        $output->section('Options :');
+        $output->accent('wazi');
+        $output->note('Un rappel.');
+
+        self::assertSame("Options :\nwazi\nUn rappel.\n", $this->written($this->standard));
+    }
+
     // --- Couleur ------------------------------------------------------------------
 
     public function testColorsComeFromTheOutputMethods(): void
@@ -117,11 +136,14 @@ final class OutputTest extends TestCase
         $output->success($attack);
         $output->warning($attack);
         $output->definitions([$attack => $attack]);
+        $output->section($attack);
+        $output->accent($attack);
+        $output->note($attack);
         $output->error($attack);
 
         foreach ([$this->written($this->standard), $this->written($this->errors)] as $written) {
             // Les seules séquences permises sont celles de couleur, écrites par Output.
-            $withoutOwnColors = preg_replace('/\e\[(?:0|1|31|32|33|36)m/', '', $written);
+            $withoutOwnColors = preg_replace('/\e\[(?:0|1|2|31|32|33|38;5;37|1;38;5;179)m/', '', $written);
 
             self::assertDoesNotMatchRegularExpression('/[\x00-\x08\x0B-\x1F\x7F]/', (string) $withoutOwnColors);
             self::assertStringNotContainsString("\xC2\x9B", $written);
