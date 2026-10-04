@@ -47,4 +47,4 @@ Pour ne pas chercher ce qui n'existe pas :
 
 - **pas de base de données**, pas de validation de formulaires toute faite, pas de console : prévus pour la version 0.4 ;
 - **pas d'authentification toute faite** : le guide montre comment construire une connexion avec les sessions ;
-- **pas de projet de départ** installable par `composer create-project` : il arrive avec la version 0.3.
+- **le projet de départ** (`wazi/skeleton`) existe, mais ni lui ni le framework ne sont encore publiés sur Packagist : `composer create-project wazi/skeleton` ne fonctionne donc pas encore depuis Internet.
