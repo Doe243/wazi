@@ -1,0 +1,181 @@
+# 13. La console
+
+La console est ce que vous tapez dans un terminal pour agir sur votre projet : lancer le site, afficher des données, et bientôt générer du code.
+
+Dans un projet créé à partir du projet de départ, elle se lance par le fichier `wazi`, à la racine :
+
+```bash
+php wazi
+```
+
+Sans rien d'autre, elle liste ses commandes :
+
+```text
+La console de Wazi
+
+Utilisation : php wazi <commande> [arguments] [--options]
+
+Commandes :
+  messages  Affiche les messages reçus par le formulaire de contact.
+  serve     Lance le site sur votre ordinateur, pour développer.
+
+Pour le détail d'une commande : php wazi <commande> --help
+```
+
+## Lancer le site
+
+```bash
+php wazi serve
+```
+
+Le site est servi sur http://localhost:8000. Pour l'arrêter : `Ctrl+C`.
+
+```bash
+php wazi serve --port=8080
+```
+
+C'est le serveur de développement fourni avec PHP. Il sert à développer, pas à recevoir des visiteurs : voir [Mettre en ligne](12-deploiement.md).
+
+Il n'écoute que sur `localhost` : seul votre ordinateur peut l'atteindre. Pour le montrer à un autre appareil du réseau (un téléphone, pour tester), il faut le demander, et la console vous avertit :
+
+```bash
+php wazi serve --host=192.168.1.20
+```
+
+## Comment s'écrit une commande
+
+Une seule écriture, pour toutes les commandes :
+
+```text
+php wazi <commande> <argument> --option=valeur --drapeau
+```
+
+| Écriture | Sens |
+| --- | --- |
+| `valeur` | un argument, dans l'ordre attendu par la commande |
+| `--port=8080` | une option, et sa valeur collée par un signe égal |
+| `--force` | un drapeau : présent ou absent |
+| `--help` | l'aide de la commande, valable partout |
+
+Il n'y a pas d'écriture courte (`-p`), ni de valeur séparée par un espace. Une commande refuse tout ce qu'elle n'attend pas, et dit quoi écrire à la place :
+
+```text
+Erreur  La commande « serv » n'existe pas. Vouliez-vous écrire « serve » ?
+```
+
+## Écrire sa propre commande
+
+Une commande est une classe qui implémente `Command`. Elle déclare son nom, sa description, ce qu'elle accepte, et ce qu'elle fait :
+
+```php
+namespace App;
+
+use Wazi\Console\Argument;
+use Wazi\Console\Command;
+use Wazi\Console\Input;
+use Wazi\Console\Option;
+use Wazi\Console\Output;
+
+final readonly class BonjourCommand implements Command
+{
+    public function name(): string
+    {
+        return 'bonjour';
+    }
+
+    public function description(): string
+    {
+        return 'Salue quelqu\'un.';
+    }
+
+    public function arguments(): array
+    {
+        return [new Argument('nom', 'Qui saluer')];
+    }
+
+    public function options(): array
+    {
+        return [
+            new Option('fort', 'Écrire en majuscules'),          // un drapeau
+            new Option('fois', 'Combien de fois', '1'),          // une option, avec sa valeur par défaut
+        ];
+    }
+
+    public function run(Input $input, Output $output): int
+    {
+        $texte = 'Bonjour ' . $input->argument('nom') . ' !';
+
+        for ($tour = 0; $tour < (int) $input->option('fois'); $tour++) {
+            $output->line($input->flag('fort') ? mb_strtoupper($texte) : $texte);
+        }
+
+        return 0;
+    }
+}
+```
+
+Puis déclarez-la dans le fichier `wazi` de votre projet, à côté des autres :
+
+```php
+$console->add(new BonjourCommand());
+```
+
+```bash
+php wazi bonjour Alice --fort --fois=2
+```
+
+Le projet de départ en contient un exemple complet, `src/MessagesCommand.php`.
+
+### Arguments et options
+
+| Déclaration | À taper | À lire dans `run()` |
+| --- | --- | --- |
+| `new Argument('nom', '…')` | `Alice` (obligatoire) | `$input->argument('nom')` |
+| `new Argument('formule', '…', 'Bonjour')` | `Salut` (facultatif) | `$input->argument('formule')` |
+| `new Option('fois', '…', '1')` | `--fois=3` | `$input->option('fois')` |
+| `new Option('fort', '…')` | `--fort` | `$input->flag('fort')` |
+
+Tout ce qui est tapé arrive sous forme de **texte**. Comme pour un formulaire, vérifiez-le avant de vous en servir :
+
+```php
+if (!ctype_digit($input->option('fois'))) {
+    $output->error('L\'option --fois attend un nombre, par exemple --fois=3.');
+
+    return 2;
+}
+```
+
+### Le code de sortie
+
+`run()` retourne un nombre, que le terminal et les outils d'automatisation lisent pour savoir si la commande a réussi :
+
+| Code | Sens |
+| --- | --- |
+| `0` | tout s'est bien passé |
+| `1` | la commande a échoué |
+| `2` | la commande a été mal écrite |
+
+### Écrire dans le terminal
+
+| Méthode | Usage |
+| --- | --- |
+| `$output->line('…')` | une ligne ordinaire |
+| `$output->title('…')` | un titre |
+| `$output->success('…')` | ce qui a réussi |
+| `$output->warning('…')` | ce qui mérite attention |
+| `$output->error('…')` | ce qui a échoué (écrit sur la sortie d'erreur) |
+| `$output->definitions([...])` | une liste à deux colonnes, alignée |
+
+La couleur vient de ces méthodes. Elle n'est utilisée que dans un terminal : rediriger la sortie vers un fichier donne du texte simple.
+
+## Ce que la console fait pour vous
+
+- **Elle ne s'exécute que dans un terminal.** Appelée par un serveur web, elle refuse : elle donnerait à un visiteur les pouvoirs du développeur. Le fichier `wazi` est à la racine du projet, hors du dossier `public/`.
+- **Ce qu'elle affiche est nettoyé.** Une valeur venue d'un visiteur (un message, une adresse) peut contenir des séquences qui effacent l'écran ou piègent le terminal. `Output` les retire de tout ce qu'il écrit : vous n'avez pas à y penser.
+- **Une erreur n'affiche jamais de trace** : elle contiendrait les valeurs passées aux fonctions, parfois des secrets. Vous voyez le message, la sorte d'erreur, le fichier et la ligne.
+
+## Les limites
+
+La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser une question), ni de commandes pour générer du code ou inspecter les routes : elles sont prévues.
+
+Retour au [sommaire](../README.md).

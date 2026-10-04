@@ -1,6 +1,6 @@
 # 12. Mettre en ligne
 
-Le serveur de développement (`php -S`) sert à développer, pas à recevoir des visiteurs. En ligne, il faut un vrai serveur web, et quelques réglages.
+Le serveur de développement (`php wazi serve`) sert à développer, pas à recevoir des visiteurs. En ligne, il faut un vrai serveur web, et quelques réglages.
 
 ## La liste de contrôle
 
@@ -154,4 +154,4 @@ En production, le visiteur ne voit qu'une référence. Le détail est dans le jo
 - **Un seul serveur.** Les sessions sont rangées dans des fichiers locaux : une application répartie sur plusieurs serveurs ne partagerait pas ses sessions.
 - **Pas de cache des templates.** Chaque page est relue et analysée à chaque requête. Pour un site à fort trafic, placez un cache HTTP devant les pages publiques, en excluant celles qui contiennent un formulaire ou des données d'un visiteur.
 
-Retour au [sommaire](../README.md).
+Suite : [La console](13-console.md).

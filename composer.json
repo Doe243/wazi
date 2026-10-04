@@ -35,6 +35,9 @@
             "Wazi\\": "src/"
         }
     },
+    "bin": [
+        "bin/wazi"
+    ],
     "autoload-dev": {
         "psr-4": {
             "Wazi\\Tests\\": "tests/"

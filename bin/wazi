@@ -1,0 +1,46 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * La console de Wazi.
+ *
+ *     php vendor/bin/wazi              la liste des commandes
+ *     php vendor/bin/wazi serve        lance le site sur votre ordinateur
+ *
+ * Ce fichier ne fait que trois choses : charger les classes, déclarer les
+ * commandes, et confier à la console ce qui a été tapé.
+ */
+
+declare(strict_types=1);
+
+use Wazi\Console\Application;
+use Wazi\Console\Command\ServeCommand;
+
+// Sécurité (ADR-026) : la console ne s'exécute que dans un terminal. Ce
+// contrôle vient avant tout le reste, classes comprises.
+if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'phpdbg') {
+    http_response_code(404);
+
+    exit(1);
+}
+
+// Les classes sont chargées par Composer. Ce fichier se trouve soit dans le
+// framework lui-même, soit dans le dossier vendor/ d'un projet.
+foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
+    if (is_file($autoload)) {
+        require $autoload;
+
+        break;
+    }
+}
+
+if (!class_exists(Application::class)) {
+    fwrite(STDERR, 'Les bibliothèques ne sont pas installées. Lancez « composer install » dans le dossier de votre projet.' . PHP_EOL);
+
+    exit(1);
+}
+
+$console = new Application();
+$console->add(new ServeCommand());
+
+exit($console->run($argv));

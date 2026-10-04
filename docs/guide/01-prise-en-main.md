@@ -79,16 +79,19 @@ mon-projet/
 ├── views/             Vos templates Kioo
 ├── var/               Ce que l'application écrit : sessions, fichiers
 ├── .env               Vos réglages et vos secrets (jamais partagé)
+├── wazi               La console du projet : « php wazi »
 └── vendor/            Les bibliothèques installées par Composer
 ```
 
 La règle qui compte : **seul `public/` est visible depuis Internet**. Votre code, vos réglages et les sessions sont au-dessus, hors de portée. Wazi le vérifie : il refuse un fichier `.env` ou un dossier de sessions placé dans le dossier public.
 
-Avec ce rangement, le serveur de développement se lance en désignant le dossier public :
+Avec ce rangement, le site se lance par la console de Wazi, qui sert le dossier public :
 
 ```bash
-php -S localhost:8000 -t public
+php wazi serve
 ```
+
+Voir [La console](13-console.md).
 
 L'application [de démonstration](../../examples/demo/README.md) est rangée exactement ainsi. C'est le meilleur modèle à copier.
 
