@@ -27,21 +27,17 @@ Regardez le code source de la page dans votre navigateur : Kioo a ajouté un cha
 ## Recevoir et vérifier
 
 ```php
+use Wazi\Validation\Validator;
+
 #[Post('/notes')]
 public function ajouter(ServerRequestInterface $request): ResponseInterface
 {
-    $formulaire = (array) $request->getParsedBody();
-    $texte = is_string($formulaire['texte'] ?? null) ? trim($formulaire['texte']) : '';
+    $v = new Validator($request->getParsedBody());
+    $texte = $v->longText('texte', max: 280);
 
-    $erreur = match (true) {
-        $texte === '' => 'Écrivez quelque chose : une note vide n\'est pas enregistrée.',
-        mb_strlen($texte) > 280 => 'Cette note est trop longue : 280 caractères au maximum.',
-        default => null,
-    };
-
-    if ($erreur !== null) {
+    if ($v->fails()) {
         // On réaffiche le formulaire, avec ce qui a été saisi et ce qui ne va pas.
-        return $this->kioo->page('notes/liste', ['saisie' => $texte, 'erreur' => $erreur], 422);
+        return $this->kioo->page('notes/liste', ['saisie' => $v->input(), 'erreurs' => $v->errors()], 422);
     }
 
     $this->carnet->ajouter($texte);
@@ -51,33 +47,130 @@ public function ajouter(ServerRequestInterface $request): ResponseInterface
 }
 ```
 
+Le `Validator` reçoit les champs du formulaire. Chaque méthode fait trois choses : elle **lit** un champ, le **vérifie**, et **retourne sa valeur dans le bon type**. Si le champ ne convient pas, elle note un message d'erreur pour lui et retourne une valeur vide.
+
 ### Seule la vérification du serveur compte
 
 Les attributs `required` et `maxlength` aident le visiteur, mais ne protègent rien : on peut envoyer un formulaire sans navigateur, avec n'importe quel contenu. **Tout ce qui est reçu est vérifié par votre code** : présence, type, longueur, valeur permise.
 
-Quand une valeur doit faire partie d'une liste (une catégorie, un rôle), comparez-la à cette liste :
+### Une méthode par sorte de champ
+
+| Méthode | Pour | Retourne |
+| --- | --- | --- |
+| `text('nom', max: 80)` | un texte court, sur une ligne | `string` |
+| `longText('message', max: 2000)` | un texte de plusieurs lignes | `string` |
+| `integer('age', min: 18, max: 120)` | un nombre entier | `int`, ou `null` |
+| `decimal('prix', min: 0)` | un nombre à virgule (`12,5` ou `12.5`) | `float`, ou `null` |
+| `email('email')` | une adresse e-mail | `string` |
+| `choice('sujet', ['devis', 'question'])` | une valeur d'une liste (`<select>`, boutons radio) | `string` |
+| `checkbox('conditions')` | une case à cocher | `bool` |
+| `date('naissance', max: new DateTimeImmutable())` | une date (`<input type="date">`) | `DateTimeImmutable`, ou `null` |
+| `password('mot_de_passe')` | un mot de passe (8 caractères au moins) | `string` |
+
+Un champ refusé ou laissé vide retourne `''` pour un texte, `null` pour un nombre ou une date.
+
+### Les défauts sont stricts
+
+Sans rien écrire de plus :
+
+- un champ est **obligatoire** ;
+- un texte fait **255 caractères au plus** (5 000 pour `longText()`) ;
+- un texte court tient sur **une seule ligne** ;
+- un texte est débarrassé des espaces qui l'entourent.
+
+Ce qui est plus souple s'écrit, et se voit donc à la lecture :
 
 ```php
-$categorie = in_array($formulaire['categorie'] ?? null, ['travail', 'maison'], true) ? $formulaire['categorie'] : 'maison';
+$telephone = $v->text('telephone', required: false);
+$article = $v->longText('article', max: 20000);
 ```
 
-Wazi n'a pas encore de composant de validation : il est prévu pour la version 0.4.
+Oublier une règle donne un formulaire trop sévère, jamais un formulaire trop ouvert.
+
+### Ce qui est refusé d'office
+
+- **Un champ qui n'est pas un texte.** Un champ nommé `nom[]` arrive comme un tableau : il est refusé, au lieu de faire échouer votre code.
+- **Les caractères de contrôle et les textes mal encodés.** Ils abîment les pages, les journaux et les fichiers.
+- **Les nombres mal formés.** PHP lit `12abc` comme 12 et `1e3` comme 1000. Ici, seuls des chiffres font un nombre.
+- **Les dates qui n'existent pas.** PHP reporte le 31 février au mois de mars. Ici, il est refusé.
+- **Une valeur hors de la liste.** La liste affichée par un `<select>` ne protège rien : `choice()` compare la valeur reçue à la liste que vous lui donnez.
+
+### Afficher les erreurs
+
+`errors()` donne un message par champ refusé ; `input()` donne ce que le visiteur a saisi, pour qu'il n'ait pas tout à retaper.
+
+```html
+<label for="nom">Votre nom</label>
+<input id="nom" name="nom" value="{saisie.nom ?? ''}">
+<p k:if="(erreurs.nom ?? null) != null" class="erreur" role="alert">{erreurs.nom}</p>
+```
+
+Les messages sont courts et s'adressent au visiteur : « Ce champ est obligatoire. », « Écrivez un nombre entre 18 et 120. ». **Ils ne recopient jamais la valeur reçue.** Pour écrire le vôtre :
+
+```php
+$age = $v->integer('age', min: 18, message: 'Vous devez être majeur pour vous inscrire.');
+```
 
 ### Ce qu'on ne renvoie jamais
 
-En réaffichant un formulaire, on remet ce qui a été saisi, **sauf un mot de passe**. Un champ de mot de passe revient toujours vide.
+En réaffichant un formulaire, on remet ce qui a été saisi, **sauf un mot de passe**. `input()` ne contient jamais un champ lu par `password()` : un champ de mot de passe revient toujours vide.
+
+### Vos propres règles
+
+Une règle propre à votre application s'écrit en PHP ordinaire, avec `check()` :
+
+```php
+$email = $v->email('email');
+$v->check('email', !$this->comptes->existe($email), 'Cette adresse est déjà utilisée.');
+
+$debut = $v->date('debut');
+$fin = $v->date('fin');
+$v->check('fin', $debut === null || $fin === null || $fin >= $debut, 'La fin vient après le début.');
+```
+
+Si la condition est fausse, le message devient l'erreur du champ. La première erreur d'un champ est celle qu'on affiche.
+
+Aucune règle ne prend d'expression régulière : une expression mal écrite peut bloquer un serveur avec un seul texte bien choisi.
+
+### N'enregistrer que ce qui a été vérifié
+
+`values()` donne toutes les valeurs vérifiées, dans leur type :
+
+```php
+$v->text('nom', max: 80);
+$v->email('email');
+
+if (!$v->fails()) {
+    $this->comptes->creer($v->values());   // ['nom' => '...', 'email' => '...']
+}
+```
+
+Seuls les champs que **vous** avez demandés y figurent. Un visiteur qui ajoute à la main un champ `role=admin` à son formulaire ne le retrouvera jamais dans `values()`. N'enregistrez jamais directement `getParsedBody()`.
 
 ### Cases à cocher
 
-Une case non cochée n'est pas envoyée du tout :
+Une case non cochée n'est pas envoyée du tout : ce n'est jamais une erreur, `checkbox()` retourne simplement `false`.
 
 ```php
-$importante = ($formulaire['importante'] ?? null) === '1';
+$importante = $v->checkbox('importante');
 ```
 
 ```html
 <input type="checkbox" name="importante" value="1" checked="{note.importante}">
 ```
+
+### Les paramètres d'une adresse
+
+Le validateur ne connaît pas la requête : on lui donne des champs. Il vérifie donc aussi bien ce qui suit le « ? » d'une adresse :
+
+```php
+$v = new Validator($request->getQueryParams());
+$page = $v->integer('page', required: false, min: 1) ?? 1;
+```
+
+### Ce qu'il ne fait pas encore
+
+Les fichiers envoyés, les champs imbriqués (`adresse[ville]`) et les listes (`tags[]`) ne sont pas vérifiés par le validateur.
 
 ## La protection contre la falsification de requête (CSRF)
 

@@ -12,6 +12,7 @@ use Wazi\Http\Session;
 use Wazi\Routing\Attribute\Get;
 use Wazi\Routing\Attribute\Patch;
 use Wazi\Routing\Attribute\Post;
+use Wazi\Validation\Validator;
 use Wazi\View\Kioo;
 
 /**
@@ -49,14 +50,19 @@ final readonly class NoteController
     #[Post('/notes', [ConnexionRequise::class])]
     public function ajouter(ServerRequestInterface $request): ResponseInterface
     {
-        $texte = self::champ($request, 'texte');
-        $couleur = Carnet::couleurPermise(self::champ($request, 'couleur'));
-        $erreur = self::erreurDe($texte);
+        // Le navigateur vérifie déjà (attributs required et maxlength), mais on
+        // peut envoyer un formulaire sans navigateur : seule la vérification
+        // faite ici, sur le serveur, compte.
+        $v = new Validator($request->getParsedBody());
+        $texte = $v->longText('texte', max: Carnet::LONGUEUR_MAX);
+        // La liste des couleurs affichée ne protège rien : la valeur reçue
+        // doit être une des couleurs permises.
+        $couleur = $v->choice('couleur', Carnet::COULEURS, required: false) ?: Carnet::COULEURS[0];
 
-        if ($erreur !== null) {
+        if ($v->fails()) {
             // On réaffiche le formulaire avec ce qui a été saisi, et le code
             // 422 : « j'ai compris la demande, mais son contenu ne convient pas ».
-            return $this->pageListe($request, $texte, $couleur, $erreur, 422);
+            return $this->pageListe($request, $v->input()['texte'] ?? '', $couleur, implode(' ', $v->errors()), 422);
         }
 
         $this->carnet->ajouter($this->auteur(), $texte, $couleur);
@@ -87,14 +93,14 @@ final readonly class NoteController
             return $this->kioo->page('notes/introuvable', ['id' => $id], 404);
         }
 
-        $texte = self::champ($request, 'texte');
-        $couleur = Carnet::couleurPermise(self::champ($request, 'couleur'));
+        $v = new Validator($request->getParsedBody());
+        $texte = $v->longText('texte', max: Carnet::LONGUEUR_MAX);
+        $couleur = $v->choice('couleur', Carnet::COULEURS, required: false) ?: $note['couleur'];
         // Une case à cocher non cochée n'est pas envoyée du tout.
-        $importante = self::champ($request, 'importante') === '1';
-        $erreur = self::erreurDe($texte);
+        $importante = $v->checkbox('importante');
 
-        if ($erreur !== null) {
-            return $this->pageNote($note, $texte, $couleur, $importante, $erreur, 422);
+        if ($v->fails()) {
+            return $this->pageNote($note, $v->input()['texte'] ?? '', $couleur, $importante, implode(' ', $v->errors()), 422);
         }
 
         $this->carnet->modifier($id, $this->auteur(), $texte, $couleur, $importante);
@@ -190,32 +196,6 @@ final readonly class NoteController
     {
         // ConnexionRequise garantit qu'un visiteur est connecté.
         return $this->visiteur->nom() ?? throw new \LogicException('Cette route doit porter le middleware ConnexionRequise.');
-    }
-
-    /**
-     * Un champ du formulaire, s'il est bien un texte ; un texte vide sinon.
-     */
-    private static function champ(ServerRequestInterface $request, string $nom): string
-    {
-        $valeur = ((array) $request->getParsedBody())[$nom] ?? null;
-
-        return is_string($valeur) ? trim($valeur) : '';
-    }
-
-    /**
-     * Ce qui ne va pas dans le texte d'une note, ou null si tout va bien.
-     *
-     * Le navigateur vérifie déjà (attributs required et maxlength), mais on
-     * peut envoyer un formulaire sans navigateur : seule la vérification
-     * faite ici, sur le serveur, compte.
-     */
-    private static function erreurDe(string $texte): ?string
-    {
-        return match (true) {
-            $texte === '' => 'Écrivez quelque chose : une note vide n\'est pas enregistrée.',
-            mb_strlen($texte) > Carnet::LONGUEUR_MAX => 'Cette note fait ' . mb_strlen($texte) . ' caractères. Le maximum est de ' . Carnet::LONGUEUR_MAX . '.',
-            default => null,
-        };
     }
 
     /**

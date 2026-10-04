@@ -6,7 +6,7 @@
 
 Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'IDE, chaque erreur explique sa cause et la solution.
 
-> **Statut : en construction (version 0.3 « Ça s'affiche »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, configuration par `.env`, templates Kioo, sessions, protection des formulaires, erreurs pédagogiques. Pas encore de validation ni de base de données. L'API peut encore changer.
+> **Statut : en construction (version 0.3 « Ça s'affiche »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, configuration par `.env`, templates Kioo, sessions, protection et validation des formulaires, erreurs pédagogiques. Pas encore de base de données. L'API peut encore changer.
 
 ## Un premier exemple
 

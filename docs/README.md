@@ -46,6 +46,6 @@ La troisième, [la démonstration](../examples/demo/README.md), utilise tout ce 
 
 Pour ne pas chercher ce qui n'existe pas :
 
-- **pas de base de données**, pas de validation de formulaires toute faite : prévus pour la version 0.4 ;
+- **pas de base de données** : prévue pour la version 0.4 ;
 - **pas d'authentification toute faite** : le guide montre comment construire une connexion avec les sessions ;
 - **le projet de départ** (`wazi/skeleton`) existe, mais ni lui ni le framework ne sont encore publiés sur Packagist : `composer create-project wazi/skeleton` ne fonctionne donc pas encore depuis Internet.

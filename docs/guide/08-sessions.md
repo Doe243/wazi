@@ -69,11 +69,12 @@ Wazi ne fournit pas encore d'authentification toute faite. Une connexion se cons
 #[Post('/connexion')]
 public function connecter(ServerRequestInterface $request): ResponseInterface
 {
-    $formulaire = (array) $request->getParsedBody();
-    $nom = is_string($formulaire['nom'] ?? null) ? trim($formulaire['nom']) : '';
-    $motDePasse = is_string($formulaire['mot_de_passe'] ?? null) ? $formulaire['mot_de_passe'] : '';
+    $v = new Validator($request->getParsedBody());
+    $nom = $v->text('nom', max: 80);
+    // min: 1 : à la connexion, on compare le mot de passe, on ne juge pas sa solidité.
+    $motDePasse = $v->password('mot_de_passe', min: 1);
 
-    if (!$this->comptes->verifier($nom, $motDePasse)) {
+    if ($v->fails() || !$this->comptes->verifier($nom, $motDePasse)) {
         return $this->kioo->page('connexion', ['erreur' => 'Nom ou mot de passe incorrect.'], 422);
     }
 
