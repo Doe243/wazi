@@ -2,8 +2,6 @@
 
 Piste retenue le 3 octobre 2026 : **« Verre et lumière »**. Wazi signifie « clair » et Kioo « vitre » : l'identité montre ce qu'on voit à travers, rien de caché.
 
-Planche d'origine (les trois pistes comparées) : https://claude.ai/artifact/DTkJPmXujtfoUNCgDqG5cY
-
 ## Les logos
 
 | Fichier | Usage |
