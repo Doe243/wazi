@@ -1,0 +1,20 @@
+# Dependabot propose, chaque semaine, une demande de fusion quand une
+# dépendance a une version plus récente. Rien n'est fusionné tout seul :
+# la CI s'exécute, et chaque mise à jour est relue avant d'entrer.
+version: 2
+updates:
+  # Les outils de développement (PHPUnit, PHPStan...) et les interfaces PSR.
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      outils-de-developpement:
+        dependency-type: development
+
+  # Les actions utilisées par l'intégration continue.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
