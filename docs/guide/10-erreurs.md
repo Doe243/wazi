@@ -56,7 +56,7 @@ Le compte rendu complet d'une erreur y est écrit : le message, puis la suite de
 
 Où le lire :
 
-- avec le serveur de développement (`php -S`), **dans le terminal** où il tourne ;
+- avec le serveur de développement (`wazi serve`), **dans le terminal** où il tourne ;
 - en ligne, dans le fichier indiqué par le réglage `error_log` du `php.ini`, ou dans le journal du serveur web.
 
 Ce qui y est écrit :

@@ -40,7 +40,8 @@ php -S localhost:8000 examples/carnet/index.php   # contrôleur, service inject�
 Et une application complète, rangée comme un vrai projet : connexion, carnet de notes par utilisateur, formulaires protégés, messages, réglages. Voir [`examples/demo/`](examples/demo/README.md).
 
 ```bash
-php -S localhost:8000 -t examples/demo/public
+cd examples/demo
+php wazi serve
 ```
 
 ## Principes

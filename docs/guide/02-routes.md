@@ -128,7 +128,7 @@ final class ArticleController
 }
 ```
 
-Puis, dans `public/index.php`, une ligne par contrôleur :
+Puis, dans `app.php`, une ligne par contrôleur :
 
 ```php
 $app->router->addController(ArticleController::class);
@@ -137,6 +137,12 @@ $app->router->addController(ArticleController::class);
 Il existe un attribut par méthode : `#[Get]`, `#[Post]`, `#[Put]`, `#[Patch]`, `#[Delete]`.
 
 Wazi ne parcourt aucun dossier à la recherche de contrôleurs : vous les déclarez un par un. Vous savez ainsi toujours d'où vient une route. Une méthode publique sans attribut n'est pas une route.
+
+Pour voir toutes les routes de votre application, dans l'ordre où le routeur les essaie :
+
+```bash
+wazi routes
+```
 
 La page suivante explique les contrôleurs : [Contrôleurs et services](03-controleurs-et-services.md).
 

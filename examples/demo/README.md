@@ -10,12 +10,15 @@ Depuis le dossier du framework :
 
 ```bash
 composer install
-php -S localhost:8000 -t examples/demo/public
+cd examples/demo
+wazi serve
 ```
 
 Puis ouvrez http://localhost:8000. Deux comptes existent : `alice` et `bob`, mot de passe `wazi`.
 
-`-t examples/demo/public` dit au serveur que seul le dossier `public/` est visible depuis un navigateur. C'est important : sans cela, Wazi refuse de démarrer les sessions, parce que leurs fichiers seraient téléchargeables.
+Si votre terminal ne connaît pas `wazi`, tapez `php wazi serve` : c'est le même fichier qui s'exécute. Pour voir les routes de la démonstration : `wazi routes`.
+
+`wazi serve` ne sert que le dossier `public/`. C'est important : si tout le projet était visible depuis un navigateur, Wazi refuserait de démarrer les sessions, parce que leurs fichiers seraient téléchargeables.
 
 Pour voir le détail des erreurs dans le navigateur, copiez `.env.example` sous le nom `.env` (il contient `APP_DEBUG=true`). Sans fichier `.env`, la démonstration fonctionne en mode production.
 
@@ -23,8 +26,10 @@ Pour voir le détail des erreurs dans le navigateur, copiez `.env.example` sous 
 
 ```text
 examples/demo/
+├── app.php                  L'application : réglages, services, routes
+├── wazi                     La console : charge app.php et exécute une commande
 ├── public/                  Le seul dossier visible depuis un navigateur
-│   ├── index.php            Le point d'entrée : réglages, assemblage, réponse
+│   ├── index.php            Le point d'entrée : charge app.php et répond
 │   ├── app.css              Les styles, thème clair et thème sombre
 │   ├── app.js               Le script du site : thème, compteur, confirmation, épingle
 │   ├── theme.js             Applique le thème choisi avant l'affichage de la page
@@ -51,7 +56,7 @@ examples/demo/
 
 Quand vous envoyez le formulaire « Nouvelle note » :
 
-1. `public/index.php` reçoit la requête et la confie au noyau (`Kernel`).
+1. `public/index.php` reçoit la requête, charge l'application construite par `app.php`, et la confie au noyau (`Kernel`).
 2. Les en-têtes de sécurité, le cookie du jeton et la session sont préparés (trois middlewares de Wazi).
 3. Le routeur trouve la route `POST /notes`, écrite au-dessus de `NoteController::ajouter()`.
 4. Wazi vérifie que le formulaire porte le bon jeton. Sinon : 403, et rien d'autre ne s'exécute.
@@ -97,4 +102,4 @@ Elle montre Wazi, pas un site prêt à mettre en ligne.
 - **Les comptes sont écrits dans le code**, avec le même mot de passe. Un vrai site les range dans une base de données.
 - **Le nombre d'essais de connexion n'est pas limité.** Un vrai site doit ralentir ou bloquer quelqu'un qui essaie des milliers de mots de passe.
 - **Les notes sont dans un fichier JSON.** Cela suffit pour quelques notes ; le composant de base de données de Wazi arrive dans la version 0.4.
-- **Les classes sont chargées une à une** dans `public/index.php`. Dans un vrai projet, Composer s'en charge.
+- **Les classes sont chargées une à une** dans `app.php`. Dans un vrai projet, Composer s'en charge.

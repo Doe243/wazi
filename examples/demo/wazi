@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * La console de la démonstration.
+ *
+ *     wazi                 la liste des commandes
+ *     wazi serve           lance la démonstration sur votre ordinateur
+ *     wazi routes          liste ses routes
+ *
+ * À taper depuis ce dossier (examples/demo). Si la commande « wazi » n'est
+ * pas installée sur votre ordinateur, tapez « php wazi » à la place.
+ */
+
+declare(strict_types=1);
+
+use Wazi\Console\Application;
+use Wazi\Console\Command\ServeCommand;
+use Wazi\Console\Output;
+use Wazi\Kernel\Command\RoutesCommand;
+use Wazi\Kernel\Kernel;
+
+// La console ne s'exécute que dans un terminal, jamais par un navigateur.
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+require __DIR__ . '/../../vendor/autoload.php';
+
+// L'application, la même que celle que sert le site.
+try {
+    $app = Kernel::load(__DIR__ . '/app.php');
+} catch (Throwable $error) {
+    $output = new Output(STDOUT, STDERR);
+    $output->error($error->getMessage());
+    $output->line('  ' . $error::class . ', dans ' . $error->getFile() . ', ligne ' . $error->getLine());
+
+    exit(1);
+}
+
+$console = new Application();
+$console->add(new ServeCommand(__DIR__));
+$console->add(new RoutesCommand($app->router));
+
+exit($console->run($argv));
