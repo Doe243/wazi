@@ -1,8 +1,9 @@
 /*
  * L'identité « Verre et lumière » de Wazi : voir docs/brand/README.md.
  *
- * Des surfaces claires, des traits fins, du verre translucide. Pas d'ombre
- * portée, pas de dégradé : la profondeur vient de ce qu'on voit à travers.
+ * Des surfaces claires, des traits fins, du verre translucide. La profondeur
+ * vient de ce qu'on voit à travers : pas d'ombre, et pour seul dégradé les
+ * deux halos de lumière du fond de page.
  */
 
 /* --- Couleurs -------------------------------------------------------------
@@ -27,6 +28,8 @@
     --code-bordure: #0D2B30;
     --verre: rgb(18 163 160 / .16);
     --verre-trait: rgb(18 163 160 / .45);
+    /* Les deux halos de lumière du fond de page. */
+    --halo: rgb(18 163 160 / .16);
 
     --note-lagon: #E1F4F3;   --note-lagon-trait: #9BD8D5;
     --note-miel: #FDF2D9;    --note-miel-trait: #EBCB8B;
@@ -40,23 +43,24 @@
 /* Le thème sombre : choisi par l'appareil, sauf si le visiteur a choisi « clair »… */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-        --fond: #081E22;
+        --fond: #071C20;
         --surface: #0D2B30;
         --texte: #F3F8F8;
-        --secondaire: #A9C6C5;
-        --bordure: #21494E;
-        --buee: #153C41;
+        --secondaire: #A9C4C3;
+        --bordure: #1F4A50;
+        --buee: #12393F;
         --lien: #5FD6D2;
         --bouton: #5FD6D2;
         --bouton-survol: #F3F8F8;
-        --bouton-texte: #081E22;
+        --bouton-texte: #071C20;
         --lagon: #5FD6D2;
         --erreur: #F3A7AB;
-        --erreur-fond: #47191C;
+        --erreur-fond: #3A1518;
         --code-fond: #051518;
-        --code-bordure: #21494E;
+        --code-bordure: #1F4A50;
         --verre: rgb(95 214 210 / .12);
         --verre-trait: rgb(95 214 210 / .4);
+        --halo: rgb(95 214 210 / .13);
 
         --note-lagon: #103A3D;   --note-lagon-trait: #1F6E70;
         --note-miel: #383016;    --note-miel-trait: #7D652A;
@@ -70,23 +74,24 @@
 
 /* … ou choisi par le visiteur, avec le bouton du bandeau (voir theme.js). */
 :root[data-theme="dark"] {
-    --fond: #081E22;
+    --fond: #071C20;
     --surface: #0D2B30;
     --texte: #F3F8F8;
-    --secondaire: #A9C6C5;
-    --bordure: #21494E;
-    --buee: #153C41;
+    --secondaire: #A9C4C3;
+    --bordure: #1F4A50;
+    --buee: #12393F;
     --lien: #5FD6D2;
     --bouton: #5FD6D2;
     --bouton-survol: #F3F8F8;
-    --bouton-texte: #081E22;
+    --bouton-texte: #071C20;
     --lagon: #5FD6D2;
     --erreur: #F3A7AB;
-    --erreur-fond: #47191C;
+    --erreur-fond: #3A1518;
     --code-fond: #051518;
-    --code-bordure: #21494E;
+    --code-bordure: #1F4A50;
     --verre: rgb(95 214 210 / .12);
     --verre-trait: rgb(95 214 210 / .4);
+    --halo: rgb(95 214 210 / .13);
 
     --note-lagon: #103A3D;   --note-lagon-trait: #1F6E70;
     --note-miel: #383016;    --note-miel-trait: #7D652A;
@@ -108,7 +113,12 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--fond);
+    /* Deux halos de lumière, très légers, derrière la page. */
+    background:
+        radial-gradient(60rem 30rem at 85% -10%, var(--halo), transparent 70%),
+        radial-gradient(40rem 26rem at -10% 110%, var(--halo), transparent 70%),
+        var(--fond);
+    background-attachment: fixed;
     color: var(--texte);
     font-family: 'Sora', system-ui, sans-serif;
     line-height: 1.6;
@@ -211,6 +221,20 @@ code {
 
 .marque-gauche { stroke: var(--texte); }
 .marque-droite { stroke: var(--lagon); }
+
+/* « démo », à côté du nom : on sait tout de suite où l'on est. */
+.marque .etiquette {
+    font: 600 .68rem/1 'JetBrains Mono', ui-monospace, monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--lien);
+    background: var(--buee);
+    border-radius: 999px;
+    padding: .3rem .55rem;
+}
+
+/* La page où l'on se trouve. */
+.lien-nav[aria-current="page"] { color: var(--lien); background: var(--buee); }
 
 nav, .compte { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
 
@@ -395,7 +419,12 @@ section + section { margin-top: 4rem; }
 /* Le second panneau passe DEVANT le code, sans le flouter : on lit à travers. */
 .verre-2 { inset: 58% -1% -2% 58%; transform: rotate(-4deg); z-index: 1; }
 
-/* Le chemin d'une requête : des étapes numérotées. */
+/* Le chemin d'une requête : des étapes numérotées. Chacune s'ouvre au clic
+   pour montrer son code.
+
+   <details> est une balise HTML qui s'ouvre et se ferme sans JavaScript.
+   Elles portent toutes le même attribut name : le navigateur n'en garde
+   qu'une ouverte à la fois. */
 .chemin {
     list-style: none;
     margin: 1.5rem 0 0;
@@ -406,19 +435,38 @@ section + section { margin-top: 4rem; }
     counter-reset: etape;
 }
 
-.chemin li {
-    counter-increment: etape;
-    position: relative;
+.chemin li { counter-increment: etape; min-width: 0; }
+
+/* L'étape ouverte prend toute la largeur : son code a besoin de place. Elle
+   passe sous les autres (order), qui restent alignées ; son numéro ne change pas. */
+.chemin li:has(details[open]) { grid-column: 1 / -1; order: 1; }
+
+.chemin details {
+    height: 100%;
     background: var(--surface);
     border: 1px solid var(--bordure);
     border-radius: 14px;
+    overflow: hidden;
+    transition: border-color .15s, transform .15s;
+}
+
+.chemin details:hover { border-color: var(--lagon); transform: translateY(-2px); }
+.chemin details[open] { border-color: var(--lagon); transform: none; }
+
+.chemin summary {
+    display: block;
     padding: .9rem 1rem 1rem;
     color: var(--secondaire);
     font-size: .85rem;
     line-height: 1.4;
+    cursor: pointer;
+    list-style: none;
 }
 
-.chemin li::before {
+/* Safari dessine son propre triangle : on le retire. */
+.chemin summary::-webkit-details-marker { display: none; }
+
+.chemin summary::before {
     content: counter(etape);
     display: grid;
     place-items: center;
@@ -433,7 +481,7 @@ section + section { margin-top: 4rem; }
     font-size: .75rem;
 }
 
-.chemin span {
+.chemin summary span {
     display: block;
     color: var(--texte);
     font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -442,6 +490,12 @@ section + section { margin-top: 4rem; }
     margin-bottom: .15rem;
     overflow-wrap: anywhere;
 }
+
+.chemin summary .invite { margin: .5rem 0 0; color: var(--lien); font-family: inherit; font-size: .78rem; }
+.chemin details[open] .invite { display: none; }
+
+/* Le code de l'étape, collé aux bords de sa carte. */
+.chemin .code { border: 0; border-top: 1px solid var(--code-bordure); border-radius: 0; }
 
 .grille {
     display: grid;

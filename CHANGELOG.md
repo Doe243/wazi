@@ -13,6 +13,7 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 ### Ajouté
 - **Console :** écran d'accueil avec le nom en grand, la version et les commandes rangées par famille ; aide détaillée de chaque commande (`--help`) : description, utilisation, arguments, options, exemples, texte d'aide. Interface `DetailedCommand` pour donner exemples et aide à vos propres commandes ; `Output::section()`, `accent()`, `note()`.
 - **Pages d'erreur redessinées :** une carte centrée, le code de l'erreur en pastille, les détails en rubriques, thème sombre selon le réglage du visiteur. Toujours sans logo, sans nom et sans aucune ressource chargée.
+- Démonstration : « wazi » à côté du signe, halos de lumière en fond de page, lien de la page affichée marqué dans le bandeau, et les six étapes du chemin d'une requête s'ouvrent au clic pour montrer leur code. Couleurs du thème sombre alignées sur l'identité.
 - Identité visuelle : thème sombre, échelle d'espacements, règles de relief et d'accessibilité (`docs/brand/`).
 - Dépôt : guide de contribution (`CONTRIBUTING.md`), modèles de demande de fusion et d'issue, mises à jour de dépendances proposées par Dependabot.
 
