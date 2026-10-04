@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wazi\Kernel\Command;
 
 use Wazi\Console\Application;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Output;
 use Wazi\View\Exception\KiooException;
@@ -26,7 +26,7 @@ use Wazi\View\Kioo;
  * où ils se trouvent ne doit pas être inscriptible par le serveur web ; sinon
  * Wazi refuse de s'en servir, et analyse les templates comme d'habitude.
  */
-final readonly class ViewsCompileCommand implements Command
+final readonly class ViewsCompileCommand implements DetailedCommand
 {
     public function __construct(private Kioo $kioo) {}
 
@@ -48,6 +48,27 @@ final readonly class ViewsCompileCommand implements Command
     public function options(): array
     {
         return [];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Analyse chaque template une fois pour toutes, et range le résultat dans le',
+            'dossier des templates préparés. Les pages s\'affichent ensuite plus vite.',
+            '',
+            'À lancer à la mise en ligne, pas pendant que vous développez : après avoir',
+            'modifié un template, il faut relancer la commande.',
+            '',
+            'Sécurité : en ligne, le dossier des templates préparés ne doit pas être',
+            'inscriptible par le serveur web. Sinon Wazi refuse de s\'en servir.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            '' => 'Prépare tous les templates du projet',
+        ];
     }
 
     public function run(Input $input, Output $output): int

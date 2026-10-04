@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wazi\Kernel\Command;
 
 use Wazi\Console\Application;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Output;
 use Wazi\Database\Exception\DatabaseException;
@@ -26,7 +26,7 @@ use Wazi\Database\Migrator;
  * Cette commande ne modifie rien, sauf la toute première fois : elle crée
  * alors la table où Wazi note les migrations faites.
  */
-final readonly class DbStatusCommand implements Command
+final readonly class DbStatusCommand implements DetailedCommand
 {
     public function __construct(private Migrator $migrator) {}
 
@@ -48,6 +48,26 @@ final readonly class DbStatusCommand implements Command
     public function options(): array
     {
         return [];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Quatre états possibles :',
+            '  faite             appliquée, et le fichier n\'a pas changé depuis',
+            '  à faire           « db:migrate » l\'appliquera',
+            '  modifiée depuis   le fichier a changé après coup : la base ne le sait pas',
+            '  fichier disparu   appliquée un jour, mais le fichier n\'est plus là',
+            '',
+            'La commande ne modifie pas vos tables.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            '' => 'L\'état de chaque migration',
+        ];
     }
 
     public function run(Input $input, Output $output): int

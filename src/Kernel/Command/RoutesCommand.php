@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Wazi\Kernel\Command;
 
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Output;
 use Wazi\Routing\Route;
@@ -24,7 +24,7 @@ use Wazi\Routing\Router;
  * Cette commande vit dans la couche d'assemblage (à côté du Kernel) : c'est
  * la seule qui a le droit de connaître à la fois la console et le routeur (ADR-027).
  */
-final readonly class RoutesCommand implements Command
+final readonly class RoutesCommand implements DetailedCommand
 {
     public function __construct(private Router $router) {}
 
@@ -46,6 +46,24 @@ final readonly class RoutesCommand implements Command
     public function options(): array
     {
         return [];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Pour chaque route : la méthode, l\'adresse, le code qui s\'exécute, et les',
+            'middlewares posés sur cette route.',
+            '',
+            'Les routes sont listées dans l\'ordre où vous les avez déclarées. C\'est aussi',
+            'l\'ordre dans lequel le routeur les essaie : la première qui convient gagne.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            '' => 'Toutes les routes de l\'application',
+        ];
     }
 
     public function run(Input $input, Output $output): int
