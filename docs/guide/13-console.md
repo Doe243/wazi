@@ -2,36 +2,58 @@
 
 La console est ce que vous tapez dans un terminal pour agir sur votre projet : lancer le site, afficher des données, et bientôt générer du code.
 
-Dans un projet créé à partir du projet de départ, elle se lance par le fichier `wazi`, à la racine :
+Elle se tape depuis le dossier de votre projet :
+
+```bash
+wazi
+```
+
+## Installer la commande `wazi`
+
+Pour que votre terminal connaisse le mot `wazi`, la commande s'installe une fois sur votre ordinateur, avec Composer :
+
+```bash
+composer global require wazi/framework
+```
+
+> Wazi n'est pas encore publié sur Packagist : cette ligne fonctionnera à ce moment-là. D'ici là, utilisez l'écriture ci-dessous.
+
+Composer range ses commandes globales dans un dossier à lui. Si votre terminal répond que `wazi` est introuvable, c'est que ce dossier n'est pas dans votre `PATH` : `composer global config bin-dir --absolute` vous donne son chemin, à ajouter au `PATH` de votre système.
+
+**Sans installation**, tout fonctionne quand même. Chaque projet contient un fichier `wazi`, à sa racine, et vous pouvez le lancer avec PHP :
 
 ```bash
 php wazi
 ```
 
-Sans rien d'autre, elle liste ses commandes :
+Les deux écritures font exactement la même chose : la commande `wazi` installée ne fait que passer la main au fichier `wazi` du projet où vous vous trouvez. C'est ce fichier qui déclare les commandes, celles de Wazi et les vôtres.
+
+## La liste des commandes
+
+Sans rien d'autre, la console liste ses commandes :
 
 ```text
 La console de Wazi
 
-Utilisation : php wazi <commande> [arguments] [--options]
+Utilisation : wazi <commande> [arguments] [--options]
 
 Commandes :
   messages  Affiche les messages reçus par le formulaire de contact.
   serve     Lance le site sur votre ordinateur, pour développer.
 
-Pour le détail d'une commande : php wazi <commande> --help
+Pour le détail d'une commande : wazi <commande> --help
 ```
 
 ## Lancer le site
 
 ```bash
-php wazi serve
+wazi serve
 ```
 
 Le site est servi sur http://localhost:8000. Pour l'arrêter : `Ctrl+C`.
 
 ```bash
-php wazi serve --port=8080
+wazi serve --port=8080
 ```
 
 C'est le serveur de développement fourni avec PHP. Il sert à développer, pas à recevoir des visiteurs : voir [Mettre en ligne](12-deploiement.md).
@@ -39,7 +61,7 @@ C'est le serveur de développement fourni avec PHP. Il sert à développer, pas 
 Il n'écoute que sur `localhost` : seul votre ordinateur peut l'atteindre. Pour le montrer à un autre appareil du réseau (un téléphone, pour tester), il faut le demander, et la console vous avertit :
 
 ```bash
-php wazi serve --host=192.168.1.20
+wazi serve --host=192.168.1.20
 ```
 
 ## Comment s'écrit une commande
@@ -47,7 +69,7 @@ php wazi serve --host=192.168.1.20
 Une seule écriture, pour toutes les commandes :
 
 ```text
-php wazi <commande> <argument> --option=valeur --drapeau
+wazi <commande> <argument> --option=valeur --drapeau
 ```
 
 | Écriture | Sens |
@@ -121,7 +143,7 @@ $console->add(new BonjourCommand());
 ```
 
 ```bash
-php wazi bonjour Alice --fort --fois=2
+wazi bonjour Alice --fort --fois=2
 ```
 
 Le projet de départ en contient un exemple complet, `src/MessagesCommand.php`.

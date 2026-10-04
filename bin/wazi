@@ -2,13 +2,14 @@
 <?php
 
 /**
- * La console de Wazi.
+ * La commande « wazi ».
  *
- *     php vendor/bin/wazi              la liste des commandes
- *     php vendor/bin/wazi serve        lance le site sur votre ordinateur
+ *     wazi                 la liste des commandes
+ *     wazi serve           lance le site sur votre ordinateur
  *
- * Ce fichier ne fait que trois choses : charger les classes, déclarer les
- * commandes, et confier à la console ce qui a été tapé.
+ * Installée une fois sur votre ordinateur (voir le guide, page « La console »),
+ * elle se tape depuis n'importe quel projet : elle passe alors la main au
+ * fichier « wazi » de ce projet, qui déclare ses commandes.
  */
 
 declare(strict_types=1);
@@ -24,8 +25,25 @@ if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'phpdbg') {
     exit(1);
 }
 
+// Dans le dossier d'un projet, c'est SA console qui répond : son fichier
+// « wazi » charge ses propres bibliothèques et déclare ses propres commandes.
+// On lui passe la main avant d'avoir chargé quoi que ce soit, pour que les
+// classes utilisées soient celles du projet, pas celles de cette installation.
+//
+// Seul le dossier où la commande est tapée est regardé, jamais un dossier
+// parent : on sait toujours quel fichier va s'exécuter.
+$project = getcwd() . DIRECTORY_SEPARATOR . 'wazi';
+
+if (is_file($project) && realpath($project) !== realpath(__FILE__)) {
+    require $project;
+
+    // Le fichier du projet se termine par exit() ; ceci n'est qu'une précaution.
+    exit(0);
+}
+
+// Hors d'un projet : les commandes fournies par Wazi lui-même.
 // Les classes sont chargées par Composer. Ce fichier se trouve soit dans le
-// framework lui-même, soit dans le dossier vendor/ d'un projet.
+// framework lui-même, soit dans le dossier vendor/ d'une installation.
 foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
     if (is_file($autoload)) {
         require $autoload;

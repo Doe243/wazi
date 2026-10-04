@@ -26,8 +26,9 @@ Qui lance la console ? Le développeur, sur sa machine ou sur le serveur. Ce qui
 6. **Ce qui est affiché est nettoyé** : `Output` retire les caractères de contrôle de tout texte, sauf le retour à la ligne et la tabulation. La couleur vient des méthodes d'`Output` (`success()`, `error()`...), jamais d'une séquence écrite par une commande. Elle n'est utilisée que si la sortie est un terminal et que `NO_COLOR` n'est pas défini.
 7. **Une commande du système se lance par une liste d'arguments**, jamais par une ligne passée à un interpréteur ; chaque argument venu de l'utilisateur est validé par une forme stricte.
 8. **Première commande : `wazi serve`**, le serveur de développement de PHP sur le dossier `public/`. Il écoute sur `localhost` ; une autre adresse se demande par `--host` et déclenche un avertissement.
-9. **Chaque projet a son fichier `wazi`**, à sa racine, hors du dossier public : la console se lance par `php wazi`. Ce fichier déclare les commandes une par une, celles de Wazi puis celles du projet. Demandé par l'utilisateur le 2026-10-04 : des commandes propres à Wazi, pas de `composer start`.
-10. Le framework fournit aussi `bin/wazi` (déclaré dans `composer.json`, donc `vendor/bin/wazi`), pour un projet qui n'a pas de fichier `wazi`.
+9. **Chaque projet a son fichier `wazi`**, à sa racine, hors du dossier public. Il déclare les commandes une par une, celles de Wazi puis celles du projet. Demandé par l'utilisateur le 2026-10-04 : des commandes propres à Wazi, pas de `composer start`.
+10. **On tape `wazi`, sans `php` devant** (demandé par l'utilisateur le 2026-10-04). Le framework fournit la commande `bin/wazi`, installée une fois par `composer global require wazi/framework`. Dans le dossier d'un projet, elle passe la main au fichier `wazi` de ce projet, avant d'avoir chargé la moindre classe. Sans installation, `php wazi` fait la même chose.
+11. La commande globale ne regarde que le dossier où elle est tapée, jamais un dossier parent.
 
 ## Pourquoi
 - Une écriture unique des options se lit sans mode d'emploi et s'analyse en trente lignes.
