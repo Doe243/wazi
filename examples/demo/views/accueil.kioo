@@ -42,14 +42,69 @@
 
 <section>
     <h2>Le chemin d'une requête</h2>
-    <p class="chapo">Rien n'est caché : chaque étape est une classe que vous pouvez ouvrir.</p>
+    <p class="chapo">Rien n'est caché : chaque étape est du code que vous pouvez ouvrir. Cliquez sur une étape pour le voir.</p>
+    <!-- Chaque étape est un <details> : elle s'ouvre au clic, sans JavaScript.
+         Le même attribut name sur toutes : une seule reste ouverte à la fois.
+         Dans un template, une accolade à afficher s'écrit « \{ », un chevron « &lt; ». -->
     <ol class="chemin">
-        <li><span>public/index.php</span>le point d'entrée</li>
-        <li><span>Kernel</span>assemble les pièces</li>
-        <li><span>Middlewares</span>sécurité, jeton, session</li>
-        <li><span>Routeur</span>trouve la route</li>
-        <li><span>Contrôleur</span>votre code</li>
-        <li><span>Kioo</span>écrit la page</li>
+        <li>
+            <details name="chemin">
+                <summary><span>public/index.php</span>le point d'entrée<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">// public/index.php : le seul fichier PHP que le navigateur peut appeler.</span>
+<span class="m">require</span> __DIR__ . <span class="t">'/../../../vendor/autoload.php'</span>;
+
+Kernel::load(__DIR__ . <span class="t">'/../app.php'</span>)->run();</pre>
+            </details>
+        </li>
+        <li>
+            <details name="chemin">
+                <summary><span>Kernel</span>assemble les pièces<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">// app.php : l'application est construite une fois, pour le site et la console.</span>
+$app = <span class="m">new</span> Kernel(
+    development: $config->bool(<span class="t">'APP_DEBUG'</span>, <span class="m">false</span>),
+    views: __DIR__ . <span class="t">'/views'</span>,
+    sessions: __DIR__ . <span class="t">'/var/sessions'</span>,
+);</pre>
+            </details>
+        </li>
+        <li>
+            <details name="chemin">
+                <summary><span>Middlewares</span>sécurité, jeton, session<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">// src/NoteController.php : un middleware posé sur une route.</span>
+<span class="c">// Les en-têtes de sécurité et le jeton des formulaires, eux, sont actifs partout.</span>
+<span class="a">#[Get('/notes', [ConnexionRequise::class])]</span>
+<span class="m">public function</span> liste(ServerRequestInterface $request): ResponseInterface</pre>
+            </details>
+        </li>
+        <li>
+            <details name="chemin">
+                <summary><span>Routeur</span>trouve la route<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">// app.php : une ligne par contrôleur. Ses routes sont écrites à côté de ses méthodes.</span>
+$app->router->addController(PageController::<span class="m">class</span>);
+$app->router->addController(NoteController::<span class="m">class</span>);</pre>
+            </details>
+        </li>
+        <li>
+            <details name="chemin">
+                <summary><span>Contrôleur</span>votre code<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">// src/NoteController.php : \{id:int} dans l'adresse, « int $id » dans la méthode.</span>
+<span class="a">#[Get('/notes/\{id:int}', [ConnexionRequise::class])]</span>
+<span class="m">public function</span> voir(<span class="m">int</span> $id): ResponseInterface
+\{
+    $note = $this->carnet->trouver($id, $this->auteur());
+    <span class="c">// ...</span>
+}</pre>
+            </details>
+        </li>
+        <li>
+            <details name="chemin">
+                <summary><span>Kioo</span>écrit la page<span class="invite">Voir le code</span></summary>
+                <pre class="code"><span class="c">&lt;!-- views/notes/liste.kioo : du HTML, et des valeurs entre accolades. --&gt;</span>
+&lt;li <span class="a">k:for</span>=<span class="t">"note in notes"</span> class=<span class="t">"note \{note.couleur}"</span>&gt;
+    &lt;a href=<span class="t">"/notes/\{note.id}"</span>&gt;\{note.texte}&lt;/a&gt;
+&lt;/li&gt;</pre>
+            </details>
+        </li>
     </ol>
 </section>
 
