@@ -130,7 +130,16 @@ final class DatabaseConnectionTest extends TestCase
     {
         $_SERVER['DOCUMENT_ROOT'] = $this->directory . '/public';
 
-        foreach (['/public/app.sqlite', '/public/donnees/pas/encore/creees/app.sqlite', '/var/../public/app.sqlite'] as $path) {
+        $paths = [
+            '/public/app.sqlite',
+            '/public/donnees/pas/encore/creees/app.sqlite',
+            // Des « .. » qui passent par des dossiers qui n'existent pas (encore).
+            '/var/../public/app.sqlite',
+            '/var/pas/encore/../../../public/./app.sqlite',
+            '/public/../public/app.sqlite',
+        ];
+
+        foreach ($paths as $path) {
             try {
                 Database::sqlite($this->directory . $path);
                 self::fail('Un fichier public aurait dû être refusé : ' . $path);
@@ -142,6 +151,18 @@ final class DatabaseConnectionTest extends TestCase
         // Hors du dossier public : accepté. Dedans, seulement en le demandant.
         self::assertSame(Database::SQLITE, Database::sqlite($this->directory . '/var/app.sqlite')->driver());
         self::assertSame(Database::SQLITE, Database::sqlite($this->directory . '/public/app.sqlite', unsafeAllowPublicLocation: true)->driver());
+    }
+
+    /**
+     * Sécurité : le chemin vérifié est celui qui est ouvert. Un « .. » qui
+     * traverse un dossier absent ne crée pas ce dossier au passage.
+     */
+    public function testDotsInThePathAreResolvedBeforeAnythingIsCreated(): void
+    {
+        Database::sqlite($this->directory . '/absent/../var/./app.sqlite')->execute('CREATE TABLE notes (id INTEGER)');
+
+        self::assertFileExists($this->directory . '/var/app.sqlite');
+        self::assertDirectoryDoesNotExist($this->directory . '/absent');
     }
 
     public function testADirectoryThatCannotBeCreatedIsExplained(): void
