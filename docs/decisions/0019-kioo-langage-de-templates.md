@@ -1,6 +1,6 @@
 # ADR-019 : Kioo, le langage de templates de Wazi
 
-**Statut :** acceptée — complétée par l'ADR-020 et l'ADR-025
+**Statut :** acceptée — complétée par l'ADR-020 et l'ADR-025 ; son point 11 (aucun fichier PHP généré) est remplacé par l'ADR-030
 
 ## Contexte
 La version 0.3 doit afficher des pages. La question « templates PHP natifs ou syntaxe maison » a été tranchée le 3 octobre 2026 : un langage maison, nommé **Kioo** (« vitre, miroir » en swahili), avec l'ambition d'être plus facile que Twig. Une première syntaxe proposée, à délimiteurs `{{ }}` et `{% %}`, a été refusée parce qu'elle ressemblait trop à Twig. Cet ADR fixe la syntaxe, la façon d'exécuter un template, et le périmètre de la 0.3.

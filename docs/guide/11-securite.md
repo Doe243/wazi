@@ -32,6 +32,7 @@ Désactiver une protection est possible, mais cela se voit dans le code. Cherche
 | `new Kernel(securityHeaders: null)` | Les en-têtes de sécurité |
 | `SecurityHeaders::WITHOUT_POLICY` | La politique de sécurité du contenu |
 | `Config::fromEnvFile($f, unsafeAllowPublicLocation: true)` | Le refus d'un `.env` dans le dossier public |
+| `new Kernel(unsafeAllowWritableCompiledViews: true)` | Le refus de lire des templates préparés dans un dossier où PHP peut écrire |
 
 Il n'existe aucun interrupteur qui désactive une protection « partout ».
 

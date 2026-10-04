@@ -20,7 +20,9 @@ use Wazi\Console\Command\ServeCommand;
 use Wazi\Console\Output;
 use Wazi\Kernel\Command\ExplainCommand;
 use Wazi\Kernel\Command\RoutesCommand;
+use Wazi\Kernel\Command\ViewsCompileCommand;
 use Wazi\Kernel\Kernel;
+use Wazi\View\Kioo;
 
 // La console ne s'exécute que dans un terminal, jamais par un navigateur.
 if (PHP_SAPI !== 'cli') {
@@ -44,5 +46,6 @@ $console = new Application();
 $console->add(new ServeCommand(__DIR__));
 $console->add(new RoutesCommand($app->router));
 $console->add(new ExplainCommand($app));
+$console->add(new ViewsCompileCommand($app->container->get(Kioo::class)));
 
 exit($console->run($argv));

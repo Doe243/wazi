@@ -91,6 +91,8 @@ final readonly class Kernel implements RequestHandlerInterface
      * @param SecurityHeaders|null    $securityHeaders les en-têtes de sécurité, placés avant vos middlewares ; null pour les retirer
      * @param string|null             $views           le dossier de vos templates Kioo : vos contrôleurs peuvent alors demander un Kioo dans leur constructeur
      * @param string|null             $sessions        le dossier où ranger les sessions (hors du dossier public) : vos contrôleurs peuvent alors demander une Session
+     * @param string|null             $compiledViews   le dossier des templates préparés par « wazi views:compile » (hors du dossier public) : en ligne, ils ne sont plus analysés à chaque requête
+     * @param bool                    $unsafeAllowWritableCompiledViews true pour lire ce dossier même si PHP peut y écrire (dangereux : voir CompiledTemplates)
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
@@ -105,6 +107,8 @@ final readonly class Kernel implements RequestHandlerInterface
         public Container $container = new Container(),
         ?string $views = null,
         ?string $sessions = null,
+        ?string $compiledViews = null,
+        bool $unsafeAllowWritableCompiledViews = false,
     ) {
         $this->errorHandler = $errorHandler ?? new ErrorHandler($development);
 
@@ -130,7 +134,10 @@ final readonly class Kernel implements RequestHandlerInterface
         }
 
         if ($views !== null) {
-            $this->container->set(Kioo::class, static fn(): Kioo => new Kioo($views, [], $nonce, $csrf));
+            $this->container->set(
+                Kioo::class,
+                static fn(): Kioo => new Kioo($views, [], $nonce, $csrf, $compiledViews, $unsafeAllowWritableCompiledViews),
+            );
         }
 
         // Le routeur et le noyau partagent le même conteneur : un service

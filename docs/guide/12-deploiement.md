@@ -13,6 +13,7 @@ Avant d'ouvrir le site :
 - [ ] Derrière un proxy : `APP_TRUSTED_PROXIES` contient ses adresses.
 - [ ] Le dossier `var/` est inscriptible par PHP, et par lui seul.
 - [ ] `composer install --no-dev --optimize-autoloader` a été lancé.
+- [ ] `wazi views:compile` a été lancé, et le dossier `build/` n'est pas inscriptible par le serveur web.
 - [ ] `composer audit` ne signale rien.
 - [ ] Vous savez où lire le journal des erreurs.
 
@@ -145,6 +146,60 @@ composer install --no-dev --optimize-autoloader
 
 `--no-dev` n'installe pas les outils de développement (tests, analyse) : moins de code en ligne, moins de surface d'attaque.
 
+## Préparer les templates
+
+Pendant que vous développez, chaque template est analysé à chaque requête : vous modifiez, vous rechargez, c'est à jour. En ligne, ce travail répété coûte quelques millisecondes par page. La console le fait une fois pour toutes :
+
+```bash
+wazi views:compile
+```
+
+```text
+  accueil
+  base
+  contact
+  partiels/pied
+
+OK  4 template(s) préparé(s).
+```
+
+Chaque template est analysé, et le résultat est écrit dans un fichier du dossier `build/views`. PHP garde ces fichiers en mémoire : les pages s'affichent plus vite. Sur l'application de démonstration, la page d'accueil passe de 4,8 à 0,9 ms.
+
+Le dossier se règle dans `app.php` :
+
+```php
+$app = new Kernel(
+    views: __DIR__ . '/views',
+    compiledViews: __DIR__ . '/build/views',
+);
+```
+
+Ce qu'il faut savoir :
+
+- **la commande vérifie tous vos templates.** Une faute dans l'un d'eux l'arrête, avec le nom du template et la ligne. Lancez-la dans votre script de déploiement : un template cassé n'arrivera pas en ligne ;
+- **une page n'est jamais périmée.** Si vous modifiez un template sans relancer la commande, Wazi le voit (sa date et sa taille ont changé) et l'analyse comme d'habitude. Vous perdez la vitesse, pas la justesse ;
+- **relancez la commande à chaque mise à jour du site.**
+
+### Le dossier `build/` ne doit pas être inscriptible par le serveur web
+
+Les fichiers préparés sont du PHP : ce qu'ils contiennent s'exécute. Si le serveur web pouvait écrire dans ce dossier, une faille de votre site qui permettrait à un visiteur d'y déposer un fichier lui permettrait d'exécuter du code.
+
+Wazi ne se contente pas de vous le demander : **il le vérifie à chaque requête**. Si PHP a le droit d'écrire dans le dossier, il refuse de s'en servir et analyse les templates comme en développement. Le pire qui arrive à qui l'oublie est un site plus lent.
+
+Sur un serveur Linux, en supposant que vous déployez avec le compte `deploy` et que PHP tourne sous `www-data` :
+
+```bash
+wazi views:compile
+chown -R deploy:deploy build
+chmod -R a-w,a+rX build
+```
+
+C'est l'inverse du dossier `var/`, qui doit, lui, être inscriptible par PHP. C'est pourquoi ce sont deux dossiers distincts.
+
+Si votre hébergement fait tourner PHP sous le compte qui dépose les fichiers (c'est fréquent sur un hébergement mutualisé), le dossier sera toujours inscriptible, et les templates préparés ne serviront pas. Vous pouvez l'accepter en connaissance de cause, par un geste explicite : `unsafeAllowWritableCompiledViews: true` dans `app.php`.
+
+Si votre serveur est réglé pour ne jamais revérifier les fichiers PHP (`opcache.validate_timestamps=0`), videz OPcache après la commande, comme après toute mise à jour du code.
+
 ## Le journal des erreurs
 
 En production, le visiteur ne voit qu'une référence. Le détail est dans le journal de PHP : repérez où il se trouve sur votre serveur (réglage `error_log` du `php.ini`, ou journal du serveur web) **avant** d'en avoir besoin. Voir [Les erreurs](10-erreurs.md).
@@ -152,6 +207,6 @@ En production, le visiteur ne voit qu'une référence. Le détail est dans le jo
 ## Les limites actuelles
 
 - **Un seul serveur.** Les sessions sont rangées dans des fichiers locaux : une application répartie sur plusieurs serveurs ne partagerait pas ses sessions.
-- **Pas de cache des templates.** Chaque page est relue et analysée à chaque requête. Pour un site à fort trafic, placez un cache HTTP devant les pages publiques, en excluant celles qui contiennent un formulaire ou des données d'un visiteur.
+- **L'affichage des pages reste calculé à chaque requête**, même avec des templates préparés. Pour un site à fort trafic, placez un cache HTTP devant les pages publiques, en excluant celles qui contiennent un formulaire ou des données d'un visiteur.
 
 Suite : [La console](13-console.md).

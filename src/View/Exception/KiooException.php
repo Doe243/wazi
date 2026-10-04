@@ -144,6 +144,23 @@ final class KiooException extends \RuntimeException
         ));
     }
 
+    public static function noCompiledDirectory(): self
+    {
+        return new self(
+            'Aucun dossier n\'est réglé pour les templates préparés à l\'avance. Indiquez-le au noyau, dans app.php :'
+            . ' new Kernel(views: __DIR__ . \'/views\', compiledViews: __DIR__ . \'/var/views\').',
+        );
+    }
+
+    public static function compiledNotWritable(string $name): self
+    {
+        return new self(sprintf(
+            'Le template « %s » n\'a pas pu être préparé : son fichier n\'a pas pu être écrit. Vérifiez que vous'
+            . ' avez le droit d\'écrire dans le dossier des templates préparés.',
+            $name,
+        ));
+    }
+
     public static function elseWithoutIf(): self
     {
         return new self(

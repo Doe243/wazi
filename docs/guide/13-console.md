@@ -43,6 +43,7 @@ Commandes :
   messages         Affiche les messages reçus par le formulaire de contact.
   routes           Liste les routes de l'application : adresse, code exécuté, middlewares.
   serve            Lance le site sur votre ordinateur, pour développer.
+  views:compile    Prépare les templates à l'avance, pour la mise en ligne.
 
 Pour le détail d'une commande : wazi <commande> --help
 ```
@@ -143,6 +144,14 @@ Ce que la commande vous apprend :
 Elle **n'exécute rien** : ni middleware, ni contrôleur. Vous pouvez expliquer `--method=DELETE` sans rien supprimer. En contrepartie, elle ne dit pas ce qu'un de vos middlewares décidera (laisser passer ou refuser) : cela dépend de la vraie requête.
 
 L'adresse s'écrit avec ou sans la barre du début. Sous Windows, le terminal Git Bash transforme ce qui commence par `/` en chemin de fichier : écrivez `notes/3`.
+
+## Préparer les templates pour la mise en ligne
+
+```bash
+wazi views:compile
+```
+
+Cette commande analyse tous vos templates une fois pour toutes, pour qu'ils ne le soient plus à chaque requête. Elle se lance au déploiement, pas pendant que vous développez. Elle est expliquée dans [Mettre en ligne](12-deploiement.md).
 
 ## Créer un contrôleur
 
