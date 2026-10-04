@@ -2,7 +2,7 @@
 
 Wazi est un framework PHP pensé pour **comprendre** ce qu'on construit. Cette documentation suit le même principe : chaque page dit ce que fait une pièce, comment s'en servir, et pourquoi elle est faite ainsi.
 
-> Wazi est en construction (version 0.4 en cours). Ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0.
+> Wazi est en construction (version 0.4). Ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0.
 
 ## Le guide
 
