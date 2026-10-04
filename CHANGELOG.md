@@ -1,0 +1,54 @@
+# Journal des modifications
+
+Ce qui change d'une version de Wazi à l'autre. Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), les numéros suivent le [versionnage sémantique](https://semver.org/lang/fr/) :
+
+- **correctif** (`0.4.0` → `0.4.1`) : des corrections, rien d'autre. Toujours sans risque ;
+- **mineur** (`0.4` → `0.5`) : des fonctionnalités nouvelles. Avant la 1.0, une version mineure peut encore changer l'API : c'est alors écrit sous « À modifier dans votre projet » ;
+- **majeur** (`1` → `2`) : un changement qui oblige à modifier votre code.
+
+Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions-et-publications.md).
+
+## À venir : 0.4.0 « Ça se construit »
+
+### Ajouté
+- **La console `wazi`** : `serve`, `routes`, `explain`, `make:controller`, `views:compile`, et vos propres commandes.
+- **`app.php`** : l'application est construite une fois, pour le site et pour la console (`Kernel::load()`).
+- **Templates préparés à la mise en ligne** (`wazi views:compile`) : les pages s'affichent plus vite.
+- **Validation des formulaires** : `Validator`, une méthode par sorte de champ, qui vérifie et retourne la valeur dans son type.
+- **Base de données** : `Database` (SQLite, MySQL, PostgreSQL), SQL en clair et valeurs toujours à part ; migrations avec `wazi make:migration`, `wazi db:migrate`, `wazi db:status`.
+- Guide : pages « La console » et « La base de données » ; page « Les formulaires » réécrite.
+
+### À modifier dans votre projet
+- Un projet créé avec la 0.3 doit recevoir un fichier `app.php` qui construit l'application et se termine par `return $app;`, et un `public/index.php` réduit à `Kernel::load(__DIR__ . '/../app.php')->run();`. Le projet de départ en donne le modèle.
+
+### Corrigé
+- Sessions : sous Windows, l'écriture d'une session échouait parfois (« Accès refusé ») quand un autre programme tenait le fichier ouvert un instant.
+
+### Sécurité
+- Base SQLite : un chemin contenant « .. » ne peut plus contourner le refus d'un fichier situé dans le dossier public.
+
+## 0.3.0 « Ça s'affiche » — 2026-10-04
+
+### Ajouté
+- **Kioo**, les templates : affichage échappé par défaut, `k:if`, `k:for`, mises en page, morceaux inclus, filtres.
+- **Configuration** par fichier `.env` et variables d'environnement du serveur.
+- **Sessions** : messages flash, verrou, « se souvenir de moi ».
+- **Protection CSRF** par cookie, active sur toutes les routes, même sans session.
+- **Proxies de confiance** : les en-têtes `X-Forwarded-*` ne sont crus que venant d'un proxy déclaré.
+- Jeton CSP posé automatiquement sur les scripts écrits dans un template.
+- Application de démonstration, guide en douze pages, projet de départ `wazi/skeleton`.
+
+## 0.2.0 « Ça s'organise » — 2026-10-03
+
+### Ajouté
+- **Conteneur** de services, qui fabrique seul les classes et leurs dépendances.
+- **Contrôleurs en classes**, routes déclarées par attributs (`#[Get]`, `#[Post]`...).
+- **Middlewares**, globaux ou par route ; en-têtes de sécurité actifs par défaut.
+
+## 0.1.0 « Ça répond » — 2026-10-03
+
+### Ajouté
+- **HTTP** : requêtes, réponses, flux, adresses et fichiers envoyés, conformes aux standards PSR-7 et PSR-17.
+- **Routeur**, avec paramètres et contraintes.
+- **Erreurs pédagogiques** : chaque erreur dit ce qui s'est passé, pourquoi, et comment corriger.
+- **Noyau**, qui assemble le tout : une application tient dans un seul fichier.
