@@ -45,6 +45,22 @@ Contrastes à tenir (texte lisible par tous) :
 - **Lagon ne sert jamais de couleur de texte sur fond clair** : il n'est pas assez contrasté. Pour un lien ou un bouton, c'est Verre profond ;
 - sur fond Nuit d'eau, le texte est en Fond (`#F3F8F8`) et l'accent en Lagon clair.
 
+### Le thème sombre
+
+Chaque surface de Wazi existe en clair et en sombre, et suit le réglage du visiteur (`prefers-color-scheme`). Les couleurs portent un **rôle** ; le thème sombre ne change que la valeur de chaque rôle.
+
+| Rôle | Clair | Sombre |
+| --- | --- | --- |
+| Fond de page | `#F3F8F8` | `#071C20` |
+| Carte | `#FFFFFF` | `#0D2B30` |
+| Texte | `#0D2B30` | `#F3F8F8` |
+| Texte secondaire | `#3F5B5F` | `#A9C4C3` |
+| Trait | `#C5DAD9` | `#1F4A50` |
+| Accent (liens, libellés, éléments actifs) | `#0B6E70` | `#5FD6D2` |
+| Fond d'une pastille | `#D6EEEC` | `#12393F` |
+
+En CSS, ces rôles s'écrivent une fois, en variables (`--fond`, `--carte`, `--texte`, `--second`, `--trait`, `--accent`, `--buee`) : aucune couleur n'est écrite en dur ailleurs dans une feuille de style.
+
 ## La typographie
 
 | Police | Usage | Graisses |
@@ -58,9 +74,27 @@ Là où aucune police ne peut être chargée (les pages d'erreur de Wazi, dont l
 
 ## Les formes
 
-- Coins arrondis : 16 px pour une carte, 10 px pour un bouton, 6 à 8 px pour une pastille ou un extrait de code.
-- Traits fins (1 px) en Bordure. Pas d'ombre portée, pas de dégradé.
+- **Coins arrondis :** 20 px pour la carte principale d'une page, 16 px pour une carte, 10 px pour un bouton, 6 à 8 px pour un extrait de code ; une pastille est entièrement arrondie.
+- **Traits** fins (1 px), dans la couleur du rôle « Trait ».
+- **Espacements :** une seule échelle, en multiples de 4 px : 4, 8, 12, 16, 24, 32, 44. On ne choisit pas une valeur entre deux.
+- **Relief :** une seule ombre, large et très douce, sous la carte principale d'une page (`0 18px 48px -24px`). Rien d'autre ne porte d'ombre.
+- **Lumière :** le fond d'une page peut porter deux halos de la couleur Lagon, très légers (13 à 16 % d'opacité), en haut à droite et en bas à gauche. C'est le seul dégradé de l'identité : ni bouton, ni carte, ni texte en dégradé.
+- **Largeur de lecture :** un paragraphe ne dépasse pas 60 caractères par ligne.
 - Beaucoup d'air : l'identité doit rester légère.
+
+## Les libellés et les pastilles
+
+- Un **libellé** (le nom d'un champ, d'une rubrique) s'écrit en petites capitales : 12 px, graisse 600, interlettrage élargi, couleur d'accent.
+- Une **pastille** (un code d'erreur, un état) s'écrit en police de code, 13 px, graisse 600, couleur d'accent sur son fond de pastille.
+- Un **chemin de fichier**, un nom de classe ou une référence s'écrit en police de code.
+
+## L'accessibilité
+
+- Tout texte tient un contraste d'au moins 4,5 pour 1 avec son fond, en clair comme en sombre.
+- Une information ne passe jamais par la couleur seule : une erreur a aussi un mot, une icône ou un libellé.
+- Chaque page a une zone principale (`<main>`) et un seul grand titre (`<h1>`).
+- Tout fonctionne au clavier, et l'élément actif se voit (contour de la couleur d'accent).
+- Les pages se lisent sur un écran de 320 px de large sans défilement horizontal.
 
 ## Le ton
 
@@ -70,4 +104,4 @@ La phrase de Wazi : **« Codez avec l'IA, comprenez avec Wazi. »**
 
 ## Ce que l'identité ne fait pas
 
-Les pages d'erreur que Wazi affiche aux visiteurs d'un site **ne portent ni logo ni nom** : annoncer le framework utilisé renseignerait quelqu'un qui cherche une faille. Elles reprennent seulement les couleurs.
+Les pages d'erreur que Wazi affiche aux visiteurs d'un site **ne portent ni logo ni nom** : annoncer le framework utilisé renseignerait quelqu'un qui cherche une faille. Elles reprennent les couleurs, les formes et le thème sombre, rien de plus.
