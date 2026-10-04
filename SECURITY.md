@@ -14,12 +14,12 @@ Nous nous engageons à :
 
 ## Versions prises en charge
 
-Wazi est en cours de développement (avant 0.1). Tant que la version 1.0 n'est pas publiée, seule la dernière version reçoit des correctifs de sécurité.
+Tant que la version 1.0 n'est pas publiée, seule la dernière version mineure reçoit des correctifs de sécurité. Un correctif sort sous la forme d'une version corrective (`0.4.1`), toujours sans risque à installer : voir le [journal des modifications](CHANGELOG.md).
 
 | Version | Correctifs de sécurité |
 | --- | --- |
-| Dernière version publiée | Oui |
-| Versions antérieures | Non |
+| 0.4.x | Oui |
+| 0.3.x et antérieures | Non |
 
 ## Nos engagements de conception
 

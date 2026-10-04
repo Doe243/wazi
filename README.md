@@ -4,11 +4,30 @@
 
 > *Wazi* : « clair, ouvert, évident » en swahili.
 
-Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'IDE, chaque erreur explique sa cause et la solution.
+[![CI](https://github.com/Doe243/wazi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Doe243/wazi/actions/workflows/ci.yml)
+![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-4f5b93)
+![Licence MIT](https://img.shields.io/badge/licence-MIT-2ea44f)
 
-> **Statut : en construction (version 0.4 « Ça se construit »).** Routes avec paramètres, contrôleurs dont les dépendances sont injectées, middlewares, configuration par `.env`, templates Kioo, sessions, protection et validation des formulaires, base de données (SQLite, MySQL, PostgreSQL) avec migrations, console, erreurs pédagogiques. L'API peut encore changer.
+Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'éditeur par un clic, chaque erreur explique sa cause et la solution.
+
+> **Version 0.4 « Ça se construit ».** Wazi est en construction : ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0. Ce qui change d'une version à l'autre est dans le [journal des modifications](CHANGELOG.md).
+
+## Ce que fait Wazi
+
+| | |
+| --- | --- |
+| **Routes et contrôleurs** | Adresses avec paramètres, routes écrites à côté de leur code (`#[Get('/notes/{id:int}')]`), dépendances fournies par le conteneur |
+| **Templates Kioo** | Des pages HTML ordinaires, quelques attributs en plus, tout ce qui s'affiche est échappé |
+| **Formulaires** | Protection contre la falsification de requête sans rien écrire, validation champ par champ |
+| **Base de données** | SQLite, MySQL, PostgreSQL ; du SQL en clair, des valeurs toujours à part, des migrations |
+| **Sessions et configuration** | Connexion, messages d'une page à l'autre, réglages et secrets hors du code |
+| **Console** | `wazi serve`, `wazi routes`, `wazi explain`, des générateurs, et vos propres commandes |
+| **Erreurs pédagogiques** | Chaque erreur dit ce qui s'est passé, pourquoi, et comment corriger |
+| **Sécurité par défaut** | Tout est protégé sans configuration ; désactiver une protection demande un geste explicite et local |
 
 ## Un premier exemple
+
+Une application tient dans un seul fichier :
 
 ```php
 <?php
@@ -30,47 +49,67 @@ $app->router->get('/articles/{id:int}', function (ServerRequestInterface $reques
 $app->run();
 ```
 
-Deux exemples à lancer, chacun en un seul fichier :
+Quand le projet grandit, le même code se range en contrôleurs, en services et en templates, sans réécriture :
 
-```bash
-php -S localhost:8000 examples/bonjour.php        # des routes écrites comme des fonctions
-php -S localhost:8000 examples/carnet/index.php   # contrôleur, service injecté, routes en attributs, middleware, pages en Kioo
+```php
+final readonly class NoteController
+{
+    public function __construct(private Database $db, private Kioo $kioo) {}
+
+    #[Get('/notes/{id:int}')]
+    public function voir(int $id): ResponseInterface
+    {
+        $note = $this->db->selectOne('SELECT * FROM notes WHERE id = ?', [$id]);
+
+        return $this->kioo->page('note', ['note' => $note]);
+    }
+}
 ```
 
-Et une application complète, rangée comme un vrai projet : connexion, carnet de notes par utilisateur, formulaires protégés, messages, réglages. Voir [`examples/demo/`](examples/demo/README.md).
+## Essayer
+
+Il faut PHP 8.5 et Composer. Wazi n'est pas encore publié sur Packagist : pour l'instant, on l'essaie depuis ce dépôt.
 
 ```bash
-cd examples/demo
-php wazi serve
+git clone https://github.com/Doe243/wazi.git
+cd wazi
+composer install
 ```
 
-## Principes
+Trois applications à lancer et à lire, de la plus simple à la plus complète :
 
-1. Transparence avant magie
-2. Zéro configuration obligatoire
-3. Complexité progressive : un fichier au départ, une application structurée ensuite
-4. Erreurs pédagogiques
-5. Code source lisible
-6. PHP moderne uniquement (8.5+)
-7. Standards PSR respectés (PSR-7, PSR-11, PSR-15, PSR-17)
-8. Sécurité stricte, jamais pénible : défaut sûr, sortie explicite et locale
+```bash
+php -S localhost:8000 examples/bonjour.php          # un seul fichier, des routes écrites comme des fonctions
+php -S localhost:8000 examples/carnet/index.php     # un contrôleur, un service, des pages en Kioo
+cd examples/demo && php wazi serve                  # une application complète, rangée comme un vrai projet
+```
 
-## Architecture
+La troisième, [la démonstration](examples/demo/README.md), montre une connexion, un carnet de notes par utilisateur, des formulaires protégés et des réglages.
 
-Les composants sont rangés en quatre couches. Une couche peut utiliser celles du dessous, jamais celles du dessus (règle vérifiée par Deptrac).
+Le jour de la publication, un projet se créera en une commande, à partir du [projet de départ](https://github.com/Doe243/wazi-skeleton) :
 
-| Couche | Composants |
-| --- | --- |
-| Assemblage | `Kernel` |
-| Fonctionnalités | `Routing`, `Middleware`, `Errors`, `View`, `Console` |
-| Fondations | `Http`, `Container`, `Config` |
-| Contrats | `Contracts` |
+```bash
+composer create-project wazi/skeleton mon-projet
+```
 
 ## Documentation
 
-Le guide complet, en douze pages, de la première route à la mise en ligne : [`docs/`](docs/README.md).
+- [Le guide](docs/README.md), en quatorze pages, de la première route à la mise en ligne.
+- [Le journal des modifications](CHANGELOG.md) : ce qui change d'une version à l'autre.
+- [Les décisions d'architecture](docs/decisions/) : pourquoi chaque pièce est faite comme elle l'est.
 
-Les décisions d'architecture sont consignées dans [`docs/decisions/`](docs/decisions/).
+## Principes
+
+Ils tranchent toutes les décisions. Une fonctionnalité qui en viole un est refusée ou repensée.
+
+1. **Transparence avant magie.** Tout se suit dans l'éditeur par un clic.
+2. **Zéro configuration obligatoire.** Des valeurs par défaut sensées partout.
+3. **Complexité progressive.** Un fichier au départ, une application structurée ensuite.
+4. **Erreurs pédagogiques.** Quoi, pourquoi, comment corriger.
+5. **Code source lisible.** Le cœur reste assez petit pour être lu.
+6. **PHP moderne uniquement.** PHP 8.5 au minimum.
+7. **Standards PSR respectés.** PSR-7, PSR-11, PSR-15, PSR-17.
+8. **Sécurité stricte, jamais pénible.** Le défaut est sûr ; ce qui est dangereux demande un geste explicite, nommé et local.
 
 ## Kioo
 
@@ -91,20 +130,31 @@ Kioo (« vitre » en swahili) est le langage de templates de Wazi : une page HTM
 
 Tout ce qui est affiché est échappé selon l'endroit où il se trouve.
 
+## Architecture
+
+Les composants sont rangés en quatre couches. Une couche peut utiliser celles du dessous, jamais celles du dessus ; deux composants d'une même couche ne se connaissent pas. La règle est vérifiée par Deptrac à chaque changement.
+
+| Couche | Composants |
+| --- | --- |
+| Assemblage | `Kernel` |
+| Fonctionnalités | `Routing`, `Middleware`, `Errors`, `View`, `Console`, `Validation`, `Database` |
+| Fondations | `Http`, `Container`, `Config` |
+| Contrats | `Contracts` |
+
+Les seules dépendances d'exécution sont les paquets d'interfaces PSR.
+
 ## Sécurité
 
-Wazi applique une sécurité stricte par défaut. Pour signaler une faille, voir [`SECURITY.md`](SECURITY.md) : jamais dans une issue publique.
+Wazi applique une sécurité stricte par défaut. Pour signaler une faille, voir [SECURITY.md](SECURITY.md) : jamais dans une issue publique.
 
 ## Contribuer
 
-```bash
-composer install
-composer check   # style, analyse statique, dépendances entre couches, tests
-composer cs:fix  # corrige automatiquement le style
-```
+Le projet travaille sur des branches, fusionnées dans `main` par des demandes de fusion. Tout est expliqué dans [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Une contribution n'est fusionnée que si `composer check` passe.
+```bash
+composer check   # audit des dépendances, style, analyse statique, couches, tests
+```
 
 ## Licence
 
-MIT
+[MIT](LICENSE)
