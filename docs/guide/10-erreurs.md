@@ -159,6 +159,6 @@ La commande montre la route choisie, chaque middleware traversé, et le code ex�
 
 ## Les limites
 
-L'apparence des pages d'erreur n'est pas encore réglable : elles reprennent les couleurs de Wazi, sans logo ni nom.
+L'apparence des pages d'erreur n'est pas encore réglable : elles reprennent les couleurs de Wazi, sans logo ni nom, et suivent le thème du visiteur, clair ou sombre.
 
 Suite : [La sécurité](11-securite.md).

@@ -371,6 +371,52 @@ final class ErrorHandlerTest extends TestCase
         self::assertStringContainsString('<p class="note">Note &lt;u&gt;</p>', $html);
     }
 
+    /**
+     * Le code de l'erreur en pastille, le titre seul dans le grand titre, et
+     * le tout dans une zone principale : un lecteur d'écran s'y retrouve.
+     */
+    public function testThePageIsStructuredForReading(): void
+    {
+        $html = new ErrorPage()->render(404, 'Page introuvable', 'Texte.');
+        $page = \Dom\HTMLDocument::createFromString($html);
+
+        self::assertSame('Erreur 404', $page->querySelector('main > p.code')?->textContent);
+        self::assertSame('Page introuvable', $page->querySelector('main > h1')?->textContent);
+        self::assertSame('Texte.', $page->querySelector('main > h1 + p')?->textContent);
+        self::assertNotNull($page->querySelector('meta[name="viewport"]'));
+    }
+
+    /**
+     * Sécurité : la page ne charge rien (ni image, ni police, ni feuille de
+     * style extérieure), et sa feuille de style ne peut pas fermer sa balise.
+     */
+    public function testTheStyleLoadsNothingAndStaysInItsTag(): void
+    {
+        self::assertStringNotContainsString('url(', ErrorPage::STYLE);
+        self::assertStringNotContainsString('@import', ErrorPage::STYLE);
+        self::assertStringNotContainsString('<', ErrorPage::STYLE);
+        self::assertStringNotContainsString('http', ErrorPage::STYLE);
+    }
+
+    /**
+     * La page suit le thème du visiteur, clair ou sombre.
+     */
+    public function testTheStyleHasADarkTheme(): void
+    {
+        self::assertStringContainsString('color-scheme:light dark', ErrorPage::STYLE);
+        self::assertStringContainsString('@media(prefers-color-scheme:dark)', ErrorPage::STYLE);
+    }
+
+    /**
+     * Sécurité : la page servie aux visiteurs ne dit pas avec quoi le site est fait.
+     */
+    public function testThePageNeverNamesTheFramework(): void
+    {
+        $html = new ErrorPage()->render(500, 'Erreur interne', 'Texte.', ['Référence de l\'erreur' => 'abc']);
+
+        self::assertDoesNotMatchRegularExpression('/wazi|kioo/i', $html);
+    }
+
     public function testThePageWithoutDetailsHasNoEmptyBlocks(): void
     {
         $html = new ErrorPage()->render(404, 'Page introuvable', 'Texte.');
