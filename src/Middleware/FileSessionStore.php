@@ -161,7 +161,7 @@ final class FileSessionStore implements SessionStore
 
         chmod($temporary, 0o600);
 
-        if (!rename($temporary, $file)) {
+        if (!self::replace($temporary, $file)) {
             unlink($temporary);
 
             throw SessionStoreException::notWritable();
@@ -173,6 +173,28 @@ final class FileSessionStore implements SessionStore
         if (random_int(1, self::CLEANUP_CHANCE) === 1) {
             $this->removeExpired();
         }
+    }
+
+    /**
+     * Met le fichier provisoire à la place du fichier de session.
+     *
+     * Sous Windows, le remplacement est refusé tant qu'un autre programme
+     * tient le fichier ouvert (une autre requête qui le lit, un antivirus) :
+     * cela dure quelques millisecondes. On réessaie donc, pendant un court
+     * moment (0,2 s au plus), avant de conclure à un échec.
+     */
+    private static function replace(string $temporary, string $file): bool
+    {
+        for ($attempt = 1; $attempt <= 10; ++$attempt) {
+            // « @ » : un refus est attendu ici ; il se lit dans la valeur de retour.
+            if (@rename($temporary, $file)) {
+                return true;
+            }
+
+            usleep(20_000);
+        }
+
+        return false;
     }
 
     public function delete(string $id): void
