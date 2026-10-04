@@ -9,6 +9,7 @@ use Wazi\Http\CsrfToken;
 use Wazi\Http\Response;
 use Wazi\View\Exception\KiooException;
 use Wazi\View\Expression\Evaluator;
+use Wazi\View\Template\TemplateParser;
 
 /**
  * Kioo, le moteur de templates de Wazi (« kioo » : vitre, miroir en swahili).
@@ -65,9 +66,10 @@ use Wazi\View\Expression\Evaluator;
  *          ▼
  *     page HTML
  *
- * Rien n'est traduit en PHP ni gardé en cache sur le disque : le template est
- * lu et exécuté directement (ADR-019). Ce qui ne dépend d'aucune valeur est
- * préparé dès la lecture, pour ne pas être recalculé à l'affichage (ADR-025).
+ * Le template est lu et exécuté directement (ADR-019). Ce qui ne dépend
+ * d'aucune valeur est préparé dès la lecture, pour ne pas être recalculé à
+ * l'affichage (ADR-025). En ligne, la commande « wazi views:compile » fait la
+ * lecture une fois pour toutes, au déploiement (ADR-030).
  */
 final class Kioo
 {
@@ -91,10 +93,22 @@ final class Kioo
      * @param array<string, \Closure> $filters        vos propres filtres, en plus de ceux de Filters : nom => fonction
      * @param CspNonce|null           $nonce          le jeton à poser sur les balises <script> de vos templates ; le noyau le fournit lui-même
      * @param CsrfToken|null          $csrf           le jeton à ajouter à vos formulaires ; le noyau le fournit lui-même
+     * @param string|null             $compiledDirectory                    le dossier des templates préparés à l'avance par « wazi views:compile » ; null pour s'en passer
+     * @param bool                    $unsafeAllowWritableCompiledDirectory true pour lire ce dossier même si PHP peut y écrire (dangereux, voir CompiledTemplates)
      */
-    public function __construct(?string $viewsDirectory = null, array $filters = [], ?CspNonce $nonce = null, private readonly ?CsrfToken $csrf = null)
-    {
-        $this->loader = new TemplateLoader($viewsDirectory);
+    public function __construct(
+        ?string $viewsDirectory = null,
+        array $filters = [],
+        ?CspNonce $nonce = null,
+        private readonly ?CsrfToken $csrf = null,
+        ?string $compiledDirectory = null,
+        bool $unsafeAllowWritableCompiledDirectory = false,
+    ) {
+        $this->loader = new TemplateLoader(
+            $viewsDirectory,
+            new TemplateParser(),
+            $compiledDirectory !== null ? new CompiledTemplates($compiledDirectory, $unsafeAllowWritableCompiledDirectory) : null,
+        );
         $this->scriptNonce = $nonce?->value;
         $this->filters = [
             ...Filters::defaults(),
@@ -161,6 +175,20 @@ final class Kioo
         }
 
         $this->shared[$name] = $value;
+    }
+
+    /**
+     * Prépare à l'avance tous les templates du dossier des vues, pour qu'ils
+     * ne soient plus analysés à chaque requête. C'est ce que fait la commande
+     * « wazi views:compile », au déploiement.
+     *
+     * @return array{compiled: list<string>, removed: int} les noms des templates préparés, et le nombre de fichiers périmés supprimés
+     *
+     * @throws KiooException si un template est mal écrit, ou si aucun dossier n'est réglé pour les templates préparés
+     */
+    public function compileAll(): array
+    {
+        return $this->loader->compileAll();
     }
 
     // ------------------------------------------------------------------

@@ -51,6 +51,8 @@ $app = new Kernel(
     ),
     views: __DIR__ . '/views',
     sessions: __DIR__ . '/var/sessions',
+    // Les templates préparés par « wazi views:compile », pour la mise en ligne.
+    compiledViews: __DIR__ . '/build/views',
 );
 
 // 3. Les services. Le conteneur sait fabriquer seul un objet dont le

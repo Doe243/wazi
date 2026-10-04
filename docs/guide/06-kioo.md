@@ -337,6 +337,6 @@ Vouliez-vous écrire « upper » ? Filtres disponibles : capitalize, date, first
 
 Kioo est plus simple et plus sûr que les moteurs les plus connus, pas plus puissant. Il n'a pas encore : de composants réutilisables avec emplacements, de traduction, ni d'opérateur pour coller deux textes.
 
-Côté vitesse : un template est relu et analysé à chaque requête, ce qui prend quelques millisecondes par page. C'est suffisant pour la plupart des sites ; un moyen de l'éviter est à l'étude.
+Côté vitesse : pendant que vous développez, un template est relu et analysé à chaque requête, ce qui prend quelques millisecondes par page. En ligne, la commande `wazi views:compile` fait cette analyse une fois pour toutes, au déploiement : voir [Mettre en ligne](12-deploiement.md).
 
 Suite : [La configuration](07-configuration.md).
