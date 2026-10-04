@@ -36,7 +36,7 @@ La même page, avec ce qu'il faut pour corriger :
 | **Où, dans votre code** | Le fichier et la ligne de **votre** code, pas ceux de Wazi |
 | **Référence dans le journal** | Pour retrouver le compte rendu complet |
 
-Même en développement, le navigateur ne montre **jamais** la trace complète, la valeur d'une variable ou un réglage. Le détail est dans le journal. Wazi ne fournit aucun outil de débogage accessible par le navigateur : ce genre d'outil, oublié en ligne, est une porte ouverte.
+Même en développement, le navigateur ne montre **jamais** la trace complète, la valeur d'une variable ou un réglage. C'est vrai aussi de la [barre de débogage](15-barre-de-debogage.md). Le détail est dans le journal. Wazi ne fournit aucun outil de débogage accessible par le navigateur : ce genre d'outil, oublié en ligne, est une porte ouverte.
 
 Ce mode n'est jamais deviné. Reliez-le à un réglage, faux par défaut :
 

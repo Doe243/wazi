@@ -27,5 +27,5 @@ Wazi applique une sécurité stricte par défaut (voir `docs/decisions/0006-secu
 
 - toute protection est active sans configuration ;
 - la désactiver demande un geste explicite et local ;
-- aucun outil de débogage n'est accessible via HTTP, même en développement ;
+- aucun outil de débogage n'a d'adresse ni n'exécute quoi que ce soit ; la barre de débogage n'existe qu'en mode développement, pour une requête venue de la machine elle-même et sans proxy, et ne montre aucun secret (`docs/decisions/0035-barre-de-debogage.md`) ;
 - le mode production est la valeur par défaut.

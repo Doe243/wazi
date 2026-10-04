@@ -24,6 +24,7 @@ Wazi est un framework PHP pensé pour **comprendre** ce qu'on construit. Cette d
 | 12 | [Mettre en ligne](guide/12-deploiement.md) | Préparer un serveur et régler l'application pour la production |
 | 13 | [La console](guide/13-console.md) | Lancer le site depuis le terminal, écrire ses propres commandes |
 | 14 | [La base de données](guide/14-base-de-donnees.md) | Lire et écrire en SQL sans risque d'injection, construire la base par des migrations |
+| 15 | [La barre de débogage](guide/15-barre-de-debogage.md) | Voir, en bas de la page, quelle route a répondu et en combien de temps |
 
 ## Les exemples
 
