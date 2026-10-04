@@ -15,6 +15,7 @@
 declare(strict_types=1);
 
 use Wazi\Console\Application;
+use Wazi\Console\Command\MakeControllerCommand;
 use Wazi\Console\Command\ServeCommand;
 
 // Sécurité (ADR-026) : la console ne s'exécute que dans un terminal. Ce
@@ -60,5 +61,6 @@ if (!class_exists(Application::class)) {
 
 $console = new Application();
 $console->add(new ServeCommand());
+$console->add(new MakeControllerCommand());
 
 exit($console->run($argv));

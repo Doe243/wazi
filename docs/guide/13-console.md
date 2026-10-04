@@ -38,9 +38,10 @@ La console de Wazi
 Utilisation : wazi <commande> [arguments] [--options]
 
 Commandes :
-  messages  Affiche les messages reçus par le formulaire de contact.
-  routes    Liste les routes de l'application : adresse, code exécuté, middlewares.
-  serve     Lance le site sur votre ordinateur, pour développer.
+  make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
+  messages         Affiche les messages reçus par le formulaire de contact.
+  routes           Liste les routes de l'application : adresse, code exécuté, middlewares.
+  serve            Lance le site sur votre ordinateur, pour développer.
 
 Pour le détail d'une commande : wazi <commande> --help
 ```
@@ -83,6 +84,37 @@ POST  /contact   App\ContactController::envoyer
 Pour chaque route : la méthode, l'adresse, le code qui s'exécute, et les middlewares posés sur elle. L'ordre est celui de vos déclarations, donc celui dans lequel le routeur les essaie : si une adresse à paramètre en masque une autre, cela se voit ici.
 
 La commande lit l'application construite par `app.php`, la même que celle que sert le site.
+
+## Créer un contrôleur
+
+```bash
+wazi make:controller Article
+```
+
+```text
+OK  Créé : src/ArticleController.php
+OK  Créé : views/article.kioo
+
+Il reste une ligne à ajouter dans app.php, avec les autres contrôleurs :
+
+    $app->router->addController(\App\ArticleController::class);
+
+Puis ouvrez /article dans votre navigateur.
+```
+
+La commande crée deux fichiers : le contrôleur, avec une route, et le template de sa page. Si votre projet a une mise en page `views/base.kioo`, la page s'y place.
+
+Le code créé est **commenté** : chaque ligne dit ce qu'elle fait. Quand vous connaissez ces lignes, demandez-le sans les explications :
+
+```bash
+wazi make:controller Article --no-comments
+```
+
+Trois règles, pour qu'elle ne puisse rien abîmer :
+
+- **elle ne remplace jamais un fichier existant.** Si l'un des deux existe déjà, elle ne crée rien et vous le dit ;
+- **elle ne modifie pas `app.php`.** Elle vous donne la ligne à y ajouter : aucune route n'apparaît sans que vous l'ayez déclarée ;
+- **le nom est un nom de classe** : une majuscule, puis des lettres sans accent et des chiffres. `BlogPost` donne l'adresse `/blog-post`.
 
 ## Comment s'écrit une commande
 
@@ -224,7 +256,7 @@ La couleur vient de ces méthodes. Elle n'est utilisée que dans un terminal : r
 
 ## Les limites
 
-La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser une question), ni de commandes pour générer du code : elles sont prévues.
+La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser une question). D'autres générateurs (middleware, commande) sont prévus.
 
 Une erreur dans `app.php` (un réglage manquant, une route mal écrite) empêche la console de démarrer, quelle que soit la commande. Elle vous dit laquelle, et où.
 
