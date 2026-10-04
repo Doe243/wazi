@@ -7,7 +7,7 @@ namespace Wazi\Kernel\Command;
 use Psr\Http\Message\ServerRequestInterface;
 use Wazi\Console\Application;
 use Wazi\Console\Argument;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Option;
 use Wazi\Console\Output;
@@ -37,7 +37,7 @@ use Wazi\Routing\RouteMatch;
  * Sécurité (ADR-006 et ADR-029) : cet outil ne s'utilise que dans un terminal.
  * Il ne montre ni la valeur d'un réglage, ni le contenu d'une session.
  */
-final readonly class ExplainCommand implements Command
+final readonly class ExplainCommand implements DetailedCommand
 {
     private const string METHOD = '/^[A-Z]{1,20}$/D';
 
@@ -72,6 +72,28 @@ final readonly class ExplainCommand implements Command
     public function options(): array
     {
         return [new Option('method', 'La méthode de la requête : GET, POST, PUT, PATCH, DELETE', 'GET')];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Montre la route choisie, les étapes traversées dans l\'ordre, le code exécuté',
+            'et d\'où vient chacun de ses arguments.',
+            '',
+            'Rien n\'est exécuté : ni middleware, ni contrôleur. Vous pouvez expliquer',
+            'une suppression sans rien supprimer.',
+            '',
+            'L\'adresse s\'écrit avec ou sans la barre du début. Dans Git Bash, écrivez-la',
+            'sans : ce terminal transforme « /notes » en chemin de fichier.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            'notes/3' => 'Ce que traverse GET /notes/3',
+            'contact --method=POST' => 'Ce que traverse l\'envoi du formulaire de contact',
+        ];
     }
 
     public function run(Input $input, Output $output): int

@@ -7,6 +7,7 @@ namespace Wazi\Tests\Console;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Wazi\Console\Application;
+use Wazi\Console\Command\ServeCommand;
 use Wazi\Console\Exception\ConsoleException;
 use Wazi\Console\Output;
 use Wazi\Tests\Console\Fixtures\GreetCommand;
@@ -67,13 +68,46 @@ final class ApplicationTest extends TestCase
         self::assertStringContainsString("  au-revoir  Salue quelqu'un.\n  bonjour    Salue quelqu'un.\n", $written, 'Les commandes sont classées par nom.');
     }
 
+    /**
+     * L'écran d'accueil : le nom en grand, la version, puis les commandes.
+     */
+    public function testTheListStartsWithTheNameAndTheVersion(): void
+    {
+        $this->run_([]);
+        $lines = explode("\n", $this->written($this->standard));
+
+        // Six lignes de grandes lettres, une ligne vide, puis la version.
+        self::assertSame('██╗    ██╗ █████╗ ███████╗██╗', $lines[0]);
+        self::assertSame(' ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝', $lines[5]);
+        self::assertSame('', $lines[6]);
+        self::assertSame('Wazi 9.8.7 · le framework PHP où tout est clair', $lines[7]);
+        self::assertContains('Utilisation :', $lines);
+        self::assertContains('  --help  Explique une commande, sans l\'exécuter : wazi serve --help', $lines);
+    }
+
+    /**
+     * Sans version donnée, c'est celle que Composer a installée. Dans ce
+     * dépôt, le code n'est pas une version publiée.
+     */
+    public function testTheVersionComesFromComposerByDefault(): void
+    {
+        new Application('wazi', 'cli')->run(['wazi'], new Output($this->standard, $this->errors, false));
+
+        self::assertMatchesRegularExpression('/^Wazi (\d+\.\d+\.\d+\S*|\(version de développement\)) · /m', $this->written($this->standard));
+    }
+
     public function testHelpExplainsACommand(): void
     {
         $code = $this->run_(['bonjour', '--help']);
         $written = $this->written($this->standard);
 
         self::assertSame(0, $code);
-        self::assertStringContainsString('Utilisation : wazi bonjour <nom> [formule] [--options]', $written);
+        self::assertStringContainsString("Description :\n  Salue quelqu'un.\n", $written);
+        self::assertStringContainsString("Utilisation :\n  wazi bonjour <nom> [formule] [--options]\n", $written);
+        self::assertStringContainsString('--help    Affiche cette aide, sans exécuter la commande', $written);
+        // Une commande ordinaire n'a ni exemples, ni texte d'aide.
+        self::assertStringNotContainsString('Exemples :', $written);
+        self::assertStringNotContainsString('Aide :', $written);
         self::assertStringContainsString('formule  Le mot d\'accueil (par défaut : Bonjour)', $written);
         self::assertStringContainsString('--fort    Écrire en majuscules', $written);
         self::assertStringContainsString('--fois=…  Combien de fois (par défaut : 1)', $written);
@@ -217,6 +251,52 @@ final class ApplicationTest extends TestCase
         self::assertSame(0, $console->run(['wazi', 'make:bonjour', 'Alice'], new Output($this->standard, $this->errors, false)));
     }
 
+    /**
+     * Les commandes sans famille d'abord, puis chaque famille sous son nom,
+     * toutes les descriptions alignées.
+     */
+    public function testTheListGroupsCommandsByFamily(): void
+    {
+        $console = new Application('wazi', 'cli', '9.8.7');
+
+        foreach (['make:controller', 'serve', 'db:migrate', 'routes', 'db:status'] as $name) {
+            $console->add(new GreetCommand($name));
+        }
+
+        $console->run(['wazi'], new Output($this->standard, $this->errors, false));
+        $written = $this->written($this->standard);
+
+        self::assertStringContainsString(
+            "Commandes :\n"
+            . "  routes           Salue quelqu'un.\n"
+            . "  serve            Salue quelqu'un.\n"
+            . " db\n"
+            . "  db:migrate       Salue quelqu'un.\n"
+            . "  db:status        Salue quelqu'un.\n"
+            . " make\n"
+            . "  make:controller  Salue quelqu'un.\n",
+            $written,
+        );
+    }
+
+    /**
+     * Une commande détaillée (DetailedCommand) ajoute des exemples et un texte d'aide.
+     */
+    public function testADetailedCommandShowsExamplesAndHelp(): void
+    {
+        $console = new Application('wazi', 'cli', '9.8.7');
+        $console->add(new ServeCommand());
+
+        $code = $console->run(['wazi', 'serve', '--help'], new Output($this->standard, $this->errors, false));
+        $written = $this->written($this->standard);
+
+        self::assertSame(0, $code);
+        self::assertStringContainsString("Exemples :\n  wazi serve              Le site, sur http://localhost:8000\n  wazi serve --port=8080  Le site, sur un autre port\n", $written);
+        self::assertStringContainsString("Aide :\n  Lance le serveur web intégré à PHP", $written);
+        // Les lignes vides du texte d'aide ne portent pas d'espaces en trop.
+        self::assertDoesNotMatchRegularExpression('/[ \t]+$/m', $written);
+    }
+
     // --- Outils -----------------------------------------------------------------------------------
 
     /**
@@ -224,7 +304,7 @@ final class ApplicationTest extends TestCase
      */
     private function run_(array $typed): int
     {
-        $console = new Application('wazi', 'cli');
+        $console = new Application('wazi', 'cli', '9.8.7');
         $console->add(new GreetCommand());
         $console->add(new GreetCommand('au-revoir'));
 

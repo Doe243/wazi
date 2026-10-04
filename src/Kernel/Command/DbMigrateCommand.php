@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Wazi\Kernel\Command;
 
 use Wazi\Console\Application;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Output;
 use Wazi\Database\Exception\DatabaseException;
@@ -28,7 +28,7 @@ use Wazi\Database\Migrator;
  * Sécurité (ADR-032) : la structure de la base ne se modifie que d'ici, dans
  * un terminal. Aucune adresse du site ne déclenche une migration.
  */
-final readonly class DbMigrateCommand implements Command
+final readonly class DbMigrateCommand implements DetailedCommand
 {
     public function __construct(private Migrator $migrator) {}
 
@@ -50,6 +50,26 @@ final readonly class DbMigrateCommand implements Command
     public function options(): array
     {
         return [];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Applique, dans l\'ordre de leur nom, les fichiers du dossier migrations/ qui',
+            'ne l\'ont pas encore été. Relancer la commande ne fait rien de plus.',
+            '',
+            'À lancer après avoir créé ou récupéré une migration, et à chaque mise en ligne.',
+            '',
+            'Si une migration échoue, SQLite et PostgreSQL la défont entièrement. MySQL',
+            'garde ce qui a déjà été appliqué : le message le dit.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            '' => 'Met la base à jour',
+        ];
     }
 
     public function run(Input $input, Output $output): int
