@@ -86,6 +86,8 @@ Dans cet ordre, du plus extérieur au plus intérieur :
 | `CsrfProtection` | Refuse un formulaire sans le bon jeton | toujours, sur chaque route |
 | *ceux de la route* | | |
 
+Pour voir cette liste appliquée à une adresse précise de votre application, avec vos propres middlewares à leur place : `wazi explain notes/3`. Voir [La console](13-console.md).
+
 ### Les en-têtes de sécurité
 
 `SecurityHeaders` ajoute à chaque réponse quatre en-têtes qui demandent au navigateur de protéger vos visiteurs. Le plus important est la **politique de sécurité du contenu** (CSP) : la liste de ce que la page a le droit de charger.

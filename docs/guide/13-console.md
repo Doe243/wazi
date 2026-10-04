@@ -38,6 +38,7 @@ La console de Wazi
 Utilisation : wazi <commande> [arguments] [--options]
 
 Commandes :
+  explain          Explique ce qu'une adresse traverse : route, middlewares, contrôleur.
   make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
   messages         Affiche les messages reçus par le formulaire de contact.
   routes           Liste les routes de l'application : adresse, code exécuté, middlewares.
@@ -84,6 +85,64 @@ POST  /contact   App\ContactController::envoyer
 Pour chaque route : la méthode, l'adresse, le code qui s'exécute, et les middlewares posés sur elle. L'ordre est celui de vos déclarations, donc celui dans lequel le routeur les essaie : si une adresse à paramètre en masque une autre, cela se voit ici.
 
 La commande lit l'application construite par `app.php`, la même que celle que sert le site.
+
+## Comprendre une adresse
+
+Quand une page ne répond pas comme prévu, demandez à Wazi ce que son adresse traverse :
+
+```bash
+wazi explain notes/3
+```
+
+```text
+GET /notes/3
+
+1. La route choisie
+
+   GET /notes/{id:int}   (la 8e des 12 route(s) déclarée(s))
+   {id} = 3   (un nombre entier)
+
+2. Ce que la requête traverse, dans l'ordre
+
+    1. SecurityHeaders               ajoute les en-têtes de sécurité à la réponse
+    2. CsrfCookie                    lit le cookie du jeton des formulaires, et l'envoie si une page en a besoin
+    3. SessionMiddleware             retrouve la session du visiteur, et l'enregistre au retour
+    4. le routeur                    choisit la route ci-dessus
+    5. ConnexionRequise              Le middleware : un garde placé devant les routes réservées aux visiteurs connectés.
+    6. CsrfProtection                ne demande rien : GET ne fait que lire
+    7. Demo\NoteController::voir()   votre code : il retourne la réponse
+
+   La réponse repasse ensuite par les mêmes étapes, en sens inverse.
+
+3. Le code exécuté
+
+   Demo\NoteController::voir()
+   …/src/NoteController.php, ligne 70
+
+   Le conteneur fabrique le contrôleur, et lui fournit ce que son constructeur demande :
+     Demo\Carnet $carnet
+     Wazi\View\Kioo $kioo
+
+   Les arguments de la méthode :
+     int $id   ← le paramètre {id} de la route : 3
+```
+
+Pour une autre méthode que GET :
+
+```bash
+wazi explain notes --method=POST
+```
+
+Ce que la commande vous apprend :
+
+- **quelle route est choisie**, et la valeur de ses paramètres. Si l'adresse convient aussi à une route déclarée plus loin, elle vous prévient : la première déclarée gagne, l'autre n'est jamais atteinte ;
+- **chaque étape traversée**, dans l'ordre. Pour vos propres middlewares, elle cite la première phrase du commentaire de leur classe : commentez-les, et l'explication parle avec vos mots ;
+- **quel code s'exécute**, où il est écrit, et d'où vient chacun de ses arguments ;
+- **pourquoi une adresse ne répond pas** : 404 (aucune route), 405 (pas pour cette méthode), ou adresse refusée par protection.
+
+Elle **n'exécute rien** : ni middleware, ni contrôleur. Vous pouvez expliquer `--method=DELETE` sans rien supprimer. En contrepartie, elle ne dit pas ce qu'un de vos middlewares décidera (laisser passer ou refuser) : cela dépend de la vraie requête.
+
+L'adresse s'écrit avec ou sans la barre du début. Sous Windows, le terminal Git Bash transforme ce qui commence par `/` en chemin de fichier : écrivez `notes/3`.
 
 ## Créer un contrôleur
 

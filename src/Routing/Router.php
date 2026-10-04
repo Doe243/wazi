@@ -246,35 +246,81 @@ final class Router implements RequestHandlerInterface
     {
         $method = $request->getMethod();
         $path = $request->getUri()->getPath();
-        $segments = self::safeSegments($path) ?? throw RouteNotFoundException::forPath($path);
+        $match = $this->find($method, $path);
+
+        if ($match->route !== null) {
+            return $this->run($match->route, $request, $match->parameters);
+        }
+
+        throw $match->allowedMethods === []
+            ? RouteNotFoundException::forPath($path)
+            : MethodNotAllowedException::forPath($method, $path, $match->allowedMethods);
+    }
+
+    /**
+     * Cherche la route d'une méthode et d'une adresse, SANS rien exécuter.
+     *
+     * C'est la recherche que fait handle() ; elle est aussi offerte seule,
+     * pour que la console puisse expliquer une adresse (« wazi explain »).
+     *
+     * @param string $path le chemin de l'adresse, encodé comme il arrive : « /articles/caf%C3%A9 »
+     */
+    public function find(string $method, string $path): RouteMatch
+    {
+        $segments = self::safeSegments($path);
+
+        if ($segments === null) {
+            return new RouteMatch(unsafePath: true);
+        }
+
+        $found = null;
+        $shadowed = [];
 
         // Les méthodes des routes dont le chemin correspond, mais pas la méthode :
         // elles servent à répondre 405 plutôt que 404.
         $allowedMethods = [];
 
-        foreach ($this->routes as $route) {
+        foreach ($this->routes as $index => $route) {
             $parameters = $route->match($segments);
 
             if ($parameters === null) {
                 continue;
             }
 
-            if ($route->accepts($method)) {
-                return $this->run($route, $request, $parameters);
+            if (!$route->accepts($method)) {
+                $allowedMethods = [...$allowedMethods, ...$route->methods];
+
+                continue;
             }
 
-            $allowedMethods = [...$allowedMethods, ...$route->methods];
+            // La première route qui convient gagne. Celles qui conviendraient
+            // aussi, déclarées plus loin, ne sont que notées.
+            if ($found === null) {
+                $found = [$route, $parameters, $index + 1];
+            } else {
+                $shadowed[] = $route;
+            }
         }
 
-        if ($allowedMethods === []) {
-            throw RouteNotFoundException::forPath($path);
+        if ($found !== null) {
+            return new RouteMatch($found[0], $found[1], $found[2], shadowed: $shadowed);
         }
 
         if (in_array('GET', $allowedMethods, true)) {
             $allowedMethods[] = 'HEAD';
         }
 
-        throw MethodNotAllowedException::forPath($method, $path, array_values(array_unique($allowedMethods)));
+        return new RouteMatch(allowedMethods: array_values(array_unique($allowedMethods)));
+    }
+
+    /**
+     * Les middlewares appliqués à toutes les routes, après ceux de chaque route.
+     *
+     * @return list<MiddlewareInterface|string>
+     */
+    public function middlewares(): array
+    {
+        return $this->middlewares;
     }
 
     // ------------------------------------------------------------------
