@@ -22,6 +22,7 @@ Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre
 | **Base de données** | SQLite, MySQL, PostgreSQL ; du SQL en clair, des valeurs toujours à part, des migrations |
 | **Sessions et configuration** | Connexion, messages d'une page à l'autre, réglages et secrets hors du code |
 | **Console** | `wazi serve`, `wazi routes`, `wazi explain`, des générateurs, et vos propres commandes |
+| **Barre de débogage** | En développement, en bas de la page : la route, le code exécuté, les templates, la durée. Jamais un secret |
 | **Erreurs pédagogiques** | Chaque erreur dit ce qui s'est passé, pourquoi, et comment corriger |
 | **Sécurité par défaut** | Tout est protégé sans configuration ; désactiver une protection demande un geste explicite et local |
 
@@ -94,7 +95,7 @@ composer create-project wazi/skeleton mon-projet
 
 ## Documentation
 
-- [Le guide](docs/README.md), en quatorze pages, de la première route à la mise en ligne.
+- [Le guide](docs/README.md), en quinze pages, de la première route à la mise en ligne.
 - [Le journal des modifications](CHANGELOG.md) : ce qui change d'une version à l'autre.
 - [Les décisions d'architecture](docs/decisions/) : pourquoi chaque pièce est faite comme elle l'est.
 
@@ -137,7 +138,7 @@ Les composants sont rangés en quatre couches. Une couche peut utiliser celles d
 | Couche | Composants |
 | --- | --- |
 | Assemblage | `Kernel` |
-| Fonctionnalités | `Routing`, `Middleware`, `Errors`, `View`, `Console`, `Validation`, `Database` |
+| Fonctionnalités | `Routing`, `Middleware`, `Errors`, `View`, `Console`, `Validation`, `Database`, `Debug` |
 | Fondations | `Http`, `Container`, `Config` |
 | Contrats | `Contracts` |
 

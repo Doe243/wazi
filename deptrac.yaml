@@ -26,6 +26,8 @@ deptrac:
       collectors: [{ type: directory, value: src/Validation/.* }]
     - name: Database
       collectors: [{ type: directory, value: src/Database/.* }]
+    - name: Debug
+      collectors: [{ type: directory, value: src/Debug/.* }]
     - name: Kernel
       collectors: [{ type: directory, value: src/Kernel/.* }]
   ruleset:
@@ -43,5 +45,6 @@ deptrac:
     Console: [Http, Container, Config, Contracts]
     Validation: [Http, Container, Config, Contracts]
     Database: [Http, Container, Config, Contracts]
+    Debug: [Http, Container, Config, Contracts]
     # Assemblage : seul le Kernel connaît tout le monde
-    Kernel: [Routing, Middleware, Errors, View, Console, Validation, Database, Http, Container, Config, Contracts]
+    Kernel: [Routing, Middleware, Errors, View, Console, Validation, Database, Debug, Http, Container, Config, Contracts]
