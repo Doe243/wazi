@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wazi\View;
 
+use Wazi\Contracts\Tracer;
 use Wazi\Http\CspNonce;
 use Wazi\Http\CsrfToken;
 use Wazi\Http\Response;
@@ -95,6 +96,7 @@ final class Kioo
      * @param CsrfToken|null          $csrf           le jeton à ajouter à vos formulaires ; le noyau le fournit lui-même
      * @param string|null             $compiledDirectory                    le dossier des templates préparés à l'avance par « wazi views:compile » ; null pour s'en passer
      * @param bool                    $unsafeAllowWritableCompiledDirectory true pour lire ce dossier même si PHP peut y écrire (dangereux, voir CompiledTemplates)
+     * @param Tracer|null             $tracer         à qui signaler chaque page écrite et sa durée ; la barre de débogage, en mode développement
      */
     public function __construct(
         ?string $viewsDirectory = null,
@@ -103,6 +105,7 @@ final class Kioo
         private readonly ?CsrfToken $csrf = null,
         ?string $compiledDirectory = null,
         bool $unsafeAllowWritableCompiledDirectory = false,
+        private readonly ?Tracer $tracer = null,
     ) {
         $this->loader = new TemplateLoader(
             $viewsDirectory,
@@ -220,9 +223,15 @@ final class Kioo
      */
     public function render(string $name, array $variables = []): string
     {
+        $started = hrtime(true);
         $renderer = $this->renderer();
+        $html = $renderer->render($this->loader->load($name), [...$renderer->shared, ...$variables], $name);
 
-        return $renderer->render($this->loader->load($name), [...$renderer->shared, ...$variables], $name);
+        // En mode développement, la barre de débogage note quel template a été
+        // écrit, et en combien de temps. Le reste du temps, personne n'écoute.
+        $this->tracer?->record('template', $name, (hrtime(true) - $started) / 1_000_000);
+
+        return $html;
     }
 
     /**

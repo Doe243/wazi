@@ -9,6 +9,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
+use Wazi\Debug\DebugBar;
+use Wazi\Debug\Trace;
 use Wazi\Errors\ErrorHandler;
 use Wazi\Http\CspNonce;
 use Wazi\Http\CsrfToken;
@@ -65,7 +67,10 @@ use Wazi\View\Kioo;
  *   - les en-têtes de sécurité (SecurityHeaders) sont ajoutés à chaque réponse,
  *     que vous déclariez ou non vos propres middlewares. Pour les régler, passez
  *     votre propre objet : new Kernel(securityHeaders: new SecurityHeaders(...)).
- *     Pour les retirer, il faut l'écrire : new Kernel(securityHeaders: null).
+ *     Pour les retirer, il faut l'écrire : new Kernel(securityHeaders: null) ;
+ *   - la barre de débogage (ADR-035) n'existe qu'en mode développement, et
+ *     n'est écrite que pour une requête venue de cette machine, sans proxy.
+ *     En production, aucune de ses classes n'est chargée.
  */
 final readonly class Kernel implements RequestHandlerInterface
 {
@@ -73,6 +78,15 @@ final readonly class Kernel implements RequestHandlerInterface
     private const array FATAL_ERRORS = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
 
     private ErrorHandler $errorHandler;
+
+    /** La barre de débogage, en mode développement ; null en production. */
+    private ?DebugBar $debugBar;
+
+    /** Ce que les composants signalent à la barre ; null en production. */
+    private ?Trace $trace;
+
+    /** La session de la requête, si des sessions sont réglées. */
+    private ?Session $session;
 
     /** Là où vous déclarez vos routes : $app->router->get(...). */
     public Router $router;
@@ -93,6 +107,7 @@ final readonly class Kernel implements RequestHandlerInterface
      * @param string|null             $sessions        le dossier où ranger les sessions (hors du dossier public) : vos contrôleurs peuvent alors demander une Session
      * @param string|null             $compiledViews   le dossier des templates préparés par « wazi views:compile » (hors du dossier public) : en ligne, ils ne sont plus analysés à chaque requête
      * @param bool                    $unsafeAllowWritableCompiledViews true pour lire ce dossier même si PHP peut y écrire (dangereux : voir CompiledTemplates)
+     * @param bool                    $debugBar        false pour ne pas afficher la barre de débogage ; elle n'existe de toute façon qu'en mode développement
      *
      * @throws InvalidMiddlewareException si la liste contient autre chose qu'un middleware
      */
@@ -109,8 +124,15 @@ final readonly class Kernel implements RequestHandlerInterface
         ?string $sessions = null,
         ?string $compiledViews = null,
         bool $unsafeAllowWritableCompiledViews = false,
+        bool $debugBar = true,
     ) {
         $this->errorHandler = $errorHandler ?? new ErrorHandler($development);
+
+        // Sécurité (ADR-035) : hors du mode développement, rien de la barre
+        // de débogage n'est créé, ni même chargé.
+        $this->debugBar = $development && $debugBar ? new DebugBar() : null;
+        $this->trace = $this->debugBar !== null ? new Trace() : null;
+        $trace = $this->trace;
 
         // Un seul jeton pour la requête, partagé par les deux qui en ont besoin :
         // SecurityHeaders l'annonce dans l'en-tête, Kioo le pose sur les <script>.
@@ -127,8 +149,10 @@ final readonly class Kernel implements RequestHandlerInterface
 
         // Les sessions (ADR-021). Une seule Session pour la requête : celle que
         // le middleware remplit est celle que reçoivent vos contrôleurs.
-        if ($sessions !== null) {
-            $session = new Session();
+        $this->session = $sessions !== null ? new Session() : null;
+
+        if ($sessions !== null && $this->session !== null) {
+            $session = $this->session;
             $this->container->set(Session::class, static fn(): Session => $session);
             $ahead[] = new SessionMiddleware($session, new FileSessionStore($sessions));
         }
@@ -136,7 +160,7 @@ final readonly class Kernel implements RequestHandlerInterface
         if ($views !== null) {
             $this->container->set(
                 Kioo::class,
-                static fn(): Kioo => new Kioo($views, [], $nonce, $csrf, $compiledViews, $unsafeAllowWritableCompiledViews),
+                static fn(): Kioo => new Kioo($views, [], $nonce, $csrf, $compiledViews, $unsafeAllowWritableCompiledViews, $trace),
             );
         }
 
@@ -224,19 +248,47 @@ final readonly class Kernel implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $started = hrtime(true);
+
         try {
             // Le pipeline est assemblé ici, et non dans le constructeur : les
             // middlewares désignés par un nom de classe sont fabriqués par le
             // conteneur, que vous avez pu régler après avoir créé le noyau.
-            return Pipeline::resolved($this->middlewares, $this->router, $this->container)->handle($request);
+            $response = Pipeline::resolved($this->middlewares, $this->router, $this->container)->handle($request);
         } catch (\Throwable $error) {
+            // Une page d'erreur ne reçoit jamais la barre : sa politique de
+            // sécurité n'autorise que sa propre feuille de style.
             return $this->errorHandler->handle($error);
         }
+
+        return $this->withDebugBar($request, $response, (hrtime(true) - $started) / 1_000_000);
     }
 
     // ------------------------------------------------------------------
     // Outils internes
     // ------------------------------------------------------------------
+
+    /**
+     * Ajoute la barre de débogage à la page, si elle a le droit d'y être.
+     */
+    private function withDebugBar(ServerRequestInterface $request, ResponseInterface $response, float $milliseconds): ResponseInterface
+    {
+        // Sécurité (ADR-035) : mode développement, requête venue de cette
+        // machine, sans proxy, sous un nom local. Sinon, rien n'est ajouté.
+        if ($this->debugBar === null || $this->trace === null || DebugBar::refusal($request) !== null) {
+            return $response;
+        }
+
+        try {
+            return $this->debugBar->inject(
+                $response,
+                DebugPanels::collect($request, $response, $this->router, $this->middlewares, $this->session, $this->trace, $milliseconds),
+            );
+        } catch (\Throwable) {
+            // La barre est un confort : si elle échoue, la page part sans elle.
+            return $response;
+        }
+    }
 
     private function send(ResponseInterface $response, bool $withBody): void
     {

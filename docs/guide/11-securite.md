@@ -12,7 +12,7 @@ Cette page fait le point : ce que Wazi fait sans vous, puis ce qui reste à votr
 | Falsification de requête (CSRF) | Faire agir un visiteur connecté à son insu | Un jeton vérifié sur toute requête qui modifie | [Formulaires](09-formulaires.md) |
 | Vol ou fixation de session | Prendre la place d'un visiteur connecté | Cookie `HttpOnly`, `SameSite`, `Secure` ; identifiant impossible à deviner, jamais adopté s'il vient d'ailleurs | [Sessions](08-sessions.md) |
 | Piégeage de clics | Afficher votre site dans un cadre invisible | `X-Frame-Options: DENY` | [Middlewares](05-middlewares.md) |
-| Fuite d'informations | Lire un message d'erreur, une trace, un réglage | Mode production par défaut ; aucun outil de débogage par le navigateur | [Erreurs](10-erreurs.md) |
+| Fuite d'informations | Lire un message d'erreur, une trace, un réglage | Mode production par défaut ; barre de débogage réservée au mode développement, à votre ordinateur, et sans aucun secret | [Erreurs](10-erreurs.md), [Barre de débogage](15-barre-de-debogage.md) |
 | Fuite de secrets | Télécharger le `.env` ou les sessions | Refus de démarrer s'ils sont dans le dossier public | [Configuration](07-configuration.md) |
 | Fuite par le code source des pages | Lire vos commentaires de travail | Les commentaires d'un template ne sont jamais écrits dans la page | [Kioo](06-kioo.md) |
 | Adresses piégées | Remonter dans les dossiers avec `..` | Une adresse dont un segment est dangereux ne correspond à aucune route | [Routes](02-routes.md) |

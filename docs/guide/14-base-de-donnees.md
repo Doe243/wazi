@@ -280,4 +280,4 @@ try {
 - Pas de lecture ligne par ligne des très grands résultats : `select()` rend tout d'un coup. Limitez vos requêtes avec `LIMIT`.
 - Une seule base par application.
 
-Retour au [sommaire](../README.md).
+Suite : [La barre de débogage](15-barre-de-debogage.md).
