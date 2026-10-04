@@ -6,7 +6,7 @@ namespace Wazi\Console\Command;
 
 use Wazi\Console\Application;
 use Wazi\Console\Argument;
-use Wazi\Console\Command;
+use Wazi\Console\DetailedCommand;
 use Wazi\Console\Input;
 use Wazi\Console\Option;
 use Wazi\Console\Output;
@@ -28,7 +28,7 @@ use Wazi\Console\Output;
  *     fait de minuscules, de chiffres et de « _ ». Ni « / », ni « .. », ni espace ;
  *   - un fichier qui existe déjà n'est jamais remplacé.
  */
-final readonly class MakeMigrationCommand implements Command
+final readonly class MakeMigrationCommand implements DetailedCommand
 {
     /** creer_notes, ajouter_couleur_aux_notes, notes2. */
     private const string NAME = '/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/D';
@@ -59,6 +59,26 @@ final readonly class MakeMigrationCommand implements Command
     public function options(): array
     {
         return [new Option('no-comments', 'Créer le fichier sans les commentaires d\'explication')];
+    }
+
+    public function help(): string
+    {
+        return implode("\n", [
+            'Crée un fichier SQL dans migrations/, nommé d\'après la date et l\'heure.',
+            'Écrivez-y le changement (CREATE TABLE, ALTER TABLE...), puis appliquez-le',
+            'avec « db:migrate ».',
+            '',
+            'Pour corriger une migration déjà appliquée, créez-en une nouvelle : une',
+            'migration ne s\'applique qu\'une fois.',
+        ]);
+    }
+
+    public function examples(): array
+    {
+        return [
+            'creer_notes' => 'Crée migrations/20261004_153000_creer_notes.sql',
+            'ajouter_couleur_aux_notes' => 'Un changement de plus, appliqué après le précédent',
+        ];
     }
 
     public function run(Input $input, Output $output): int

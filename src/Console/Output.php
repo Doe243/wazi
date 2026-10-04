@@ -9,6 +9,8 @@ namespace Wazi\Console;
  *
  *     $output->title('Serveur de développement');
  *     $output->line('Le site est servi sur http://localhost:8000');
+ *     $output->section('Options :');
+ *     $output->definitions(['--port=…' => 'Le port où servir le site']);
  *     $output->success('Contrôleur créé.');
  *     $output->warning('Ce fichier existe déjà.');
  *     $output->error('Le dossier public/ est introuvable.');
@@ -36,7 +38,13 @@ final readonly class Output
 
     private const string RED = '31';
 
-    private const string CYAN = '36';
+    /** Les deux accents de Wazi, dans la palette à 256 couleurs des terminaux : Lagon et Miel. */
+    private const string ACCENT = '38;5;37';
+
+    private const string HONEY = '38;5;179';
+
+    /** Un texte d'accompagnement, moins appuyé que le reste. */
+    private const string DIM = '2';
 
     private bool $colors;
 
@@ -64,6 +72,30 @@ final readonly class Output
         $this->write($this->standard, '');
     }
 
+    /**
+     * Le nom d'une rubrique : « Utilisation : », « Options : ».
+     */
+    public function section(string $text): void
+    {
+        $this->write($this->standard, $this->styled(self::clean($text), self::BOLD . ';' . self::HONEY));
+    }
+
+    /**
+     * Une ligne dans la couleur de Wazi : un nom à mettre en avant.
+     */
+    public function accent(string $text): void
+    {
+        $this->write($this->standard, $this->styled(self::clean($text), self::ACCENT));
+    }
+
+    /**
+     * Une ligne discrète : une précision, un rappel.
+     */
+    public function note(string $text): void
+    {
+        $this->write($this->standard, $this->styled(self::clean($text), self::DIM));
+    }
+
     public function success(string $text): void
     {
         $this->write($this->standard, $this->styled('OK', self::GREEN) . '  ' . self::clean($text));
@@ -82,11 +114,12 @@ final readonly class Output
     /**
      * Une liste à deux colonnes, alignée : un nom, puis ce qu'il désigne.
      *
-     * @param array<string, string> $items nom => description
+     * @param array<string, string> $items    nom => description
+     * @param int                   $minWidth la largeur minimale de la première colonne, pour aligner plusieurs listes entre elles
      */
-    public function definitions(array $items): void
+    public function definitions(array $items, int $minWidth = 0): void
     {
-        $width = 0;
+        $width = $minWidth;
 
         foreach (array_keys($items) as $name) {
             $width = max($width, mb_strlen(self::clean($name)));
@@ -96,7 +129,7 @@ final readonly class Output
             $name = self::clean($name);
             $padding = str_repeat(' ', $width - mb_strlen($name) + 2);
 
-            $this->write($this->standard, '  ' . $this->styled($name, self::CYAN) . $padding . self::clean($description));
+            $this->write($this->standard, '  ' . $this->styled($name, self::ACCENT) . $padding . self::clean($description));
         }
     }
 
