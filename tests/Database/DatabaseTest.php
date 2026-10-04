@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Wazi\Database\Database;
 use Wazi\Database\Exception\DatabaseException;
+use Wazi\Debug\Trace;
 use Wazi\Tests\Database\Fixtures\Color;
 
 /**
@@ -499,6 +500,67 @@ final class DatabaseTest extends TestCase
         $this->expectExceptionMessage('ne respecte pas une règle de la table');
 
         $this->db->insert('commentaires', ['note_id' => 99]);
+    }
+
+    // --- Signaler ses requêtes (barre de débogage) ------------------------------------------
+
+    /**
+     * Sécurité (ADR-035) : ce qui est signalé est le TEXTE de la requête, avec
+     * ses marqueurs. Jamais une valeur.
+     */
+    public function testQueriesAreReportedWithoutTheirValues(): void
+    {
+        $trace = new Trace();
+        $db = $this->db->withTracer($trace);
+
+        $db->insert('notes', ['auteur' => 'valeur-secrete', 'texte' => 'autre-valeur-secrete']);
+        $db->select("SELECT *\n            FROM notes\n            WHERE auteur = :auteur", ['auteur' => 'valeur-secrete']);
+
+        $queries = $trace->of('sql');
+
+        self::assertSame(
+            ['INSERT INTO "notes" ("auteur", "texte") VALUES (?, ?)', 'SELECT * FROM notes WHERE auteur = :auteur'],
+            array_column($queries, 'label'),
+        );
+        self::assertGreaterThanOrEqual(0.0, $queries[0]['milliseconds']);
+        self::assertStringNotContainsString('valeur-secrete', serialize($queries));
+    }
+
+    public function testWithTracerReturnsACopyAndLeavesTheOriginalSilent(): void
+    {
+        $trace = new Trace();
+        $traced = $this->db->withTracer($trace);
+
+        $this->db->select('SELECT 1');
+        self::assertSame([], $trace->of('sql'));
+
+        // La copie parle à la même base : la table créée par l'original est là.
+        self::assertSame(0, $traced->selectValue('SELECT COUNT(*) FROM notes'));
+        self::assertCount(1, $trace->of('sql'));
+
+        // null : plus rien n'est signalé.
+        $traced->withTracer(null)->select('SELECT 1');
+        self::assertCount(1, $trace->of('sql'));
+    }
+
+    public function testARefusedQueryIsNotReportedAsDone(): void
+    {
+        $trace = new Trace();
+
+        try {
+            $this->db->withTracer($trace)->select('SELEC 1');
+        } catch (DatabaseException) {
+        }
+
+        self::assertSame([], $trace->of('sql'));
+    }
+
+    public function testAVeryLongQueryIsShortenedForTheBar(): void
+    {
+        $trace = new Trace();
+        $this->db->withTracer($trace)->select('SELECT 1 /* ' . str_repeat('x', 1000) . ' */');
+
+        self::assertSame(300, mb_strlen($trace->of('sql')[0]['label']));
     }
 
     // --- Chercher un texte -----------------------------------------------------------------

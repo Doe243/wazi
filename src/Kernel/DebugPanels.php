@@ -52,6 +52,7 @@ final class DebugPanels
             self::route($request, $router),
             self::middlewares($middlewares),
             self::templates($trace),
+            self::database($trace),
             self::session($session),
             self::environment(),
         ];
@@ -156,6 +157,37 @@ final class DebugPanels
         }
 
         return new Panel('Templates', $rows === [] ? '0' : count($rows) . ' · ' . self::duration($total), $rows);
+    }
+
+    /**
+     * Les requêtes SQL de la page : leur texte, avec ses marqueurs, et leur durée.
+     */
+    private static function database(Trace $trace): Panel
+    {
+        $queries = $trace->of('sql');
+        $rows = [];
+        $total = 0.0;
+        $counts = [];
+
+        foreach ($queries as $position => $query) {
+            $rows[($position + 1) . '. ' . self::duration($query['milliseconds'])] = $query['label'];
+            $total += $query['milliseconds'];
+            $counts[$query['label']] = ($counts[$query['label']] ?? 0) + 1;
+        }
+
+        if ($queries === []) {
+            return new Panel('Base', '0', ['Requêtes' => 'Aucune requête signalée pour cette page. Pour les voir ici : Database::fromUrl(...)->withTracer($app->tracer).']);
+        }
+
+        // La même requête lancée en boucle : le signe d'un oubli fréquent,
+        // aller chercher une par une des lignes qu'une seule requête rendrait.
+        $repeated = max($counts);
+
+        if ($repeated >= 3) {
+            $rows['À regarder'] = 'La même requête est lancée ' . $repeated . ' fois. Si c\'est dans une boucle, une seule requête (avec IN, ou une jointure) ferait le même travail.';
+        }
+
+        return new Panel('Base', count($queries) . ' · ' . self::duration($total), $rows, $repeated >= 3);
     }
 
     private static function session(?Session $session): Panel
