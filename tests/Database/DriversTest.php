@@ -416,7 +416,8 @@ final class DriversTest extends TestCase
             self::fail('La connexion aurait dû être refusée.');
         } catch (DatabaseException $error) {
             self::assertStringContainsString('La connexion à la base de données', $error->getMessage());
-            self::assertStringNotContainsString('mot-de-passe-secret', $error->getMessage() . $error->getTraceAsString() . print_r($error->getTrace(), true));
+            self::assertStringNotContainsString('mot-de-passe-secret', $error->getMessage() . $error->getTraceAsString());
+            self::assertNotContains('mot-de-passe-secret', self::textsOf($error->getTrace()));
             self::assertNull($error->getPrevious());
         } finally {
             ini_set('zend.exception_ignore_args', (string) $previous);
@@ -424,6 +425,30 @@ final class DriversTest extends TestCase
     }
 
     // --- Outils -----------------------------------------------------------------------------------
+
+    /**
+     * Tous les textes d'une trace, arguments des fonctions compris.
+     *
+     * On ne passe pas par print_r() : une trace contient aussi les arguments
+     * de l'outil de test lui-même, dont certains (un nombre « NAN ») ne se
+     * laissent pas écrire en texte sans avertissement.
+     *
+     * @param array<array-key, mixed> $values
+     *
+     * @return list<string>
+     */
+    private static function textsOf(array $values): array
+    {
+        $texts = [];
+
+        array_walk_recursive($values, static function (mixed $value) use (&$texts): void {
+            if (is_string($value)) {
+                $texts[] = $value;
+            }
+        });
+
+        return $texts;
+    }
 
     private function connect(string $driver): Database
     {
