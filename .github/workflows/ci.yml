@@ -12,12 +12,41 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.5']
+    # Les bases de données sur lesquelles les tests de Wazi\Database tournent
+    # pour de vrai. Elles ne contiennent rien : les tests les vident.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: wazi
+          MYSQL_DATABASE: wazi_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pwazi"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wazi
+          POSTGRES_PASSWORD: wazi
+          POSTGRES_DB: wazi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U wazi -d wazi_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo_sqlite, pdo_mysql, pdo_pgsql
           coverage: none
           tools: composer
 
@@ -37,4 +66,20 @@ jobs:
         run: composer deptrac
 
       - name: Tests
+        env:
+          WAZI_TEST_MYSQL_URL: mysql://root:wazi@127.0.0.1:3306/wazi_test
+          WAZI_TEST_POSTGRES_URL: postgres://wazi:wazi@127.0.0.1:5432/wazi_test
         run: composer test
+
+      # Sans cette vérification, des tests « ignorés » passeraient pour des
+      # tests réussis : on exige que MySQL et PostgreSQL aient vraiment servi.
+      - name: Les trois bases ont été testées
+        env:
+          WAZI_TEST_MYSQL_URL: mysql://root:wazi@127.0.0.1:3306/wazi_test
+          WAZI_TEST_POSTGRES_URL: postgres://wazi:wazi@127.0.0.1:5432/wazi_test
+        run: |
+          vendor/bin/phpunit --no-progress --display-skipped tests/Database/DriversTest.php | tee pilotes.log
+          if grep -q "Pas de serveur de test" pilotes.log; then
+            echo "::error::Des tests de MySQL ou de PostgreSQL ont été ignorés."
+            exit 1
+          fi

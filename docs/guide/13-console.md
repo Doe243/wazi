@@ -38,8 +38,11 @@ La console de Wazi
 Utilisation : wazi <commande> [arguments] [--options]
 
 Commandes :
+  db:migrate       Applique les migrations en attente : crée ou modifie les tables de la base.
+  db:status        Montre les migrations faites et celles qui restent à appliquer.
   explain          Explique ce qu'une adresse traverse : route, middlewares, contrôleur.
   make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
+  make:migration   Crée un fichier de migration : un changement de la structure de la base, en SQL.
   messages         Affiche les messages reçus par le formulaire de contact.
   routes           Liste les routes de l'application : adresse, code exécuté, middlewares.
   serve            Lance le site sur votre ordinateur, pour développer.
@@ -152,6 +155,16 @@ wazi views:compile
 ```
 
 Cette commande analyse tous vos templates une fois pour toutes, pour qu'ils ne le soient plus à chaque requête. Elle se lance au déploiement, pas pendant que vous développez. Elle est expliquée dans [Mettre en ligne](12-deploiement.md).
+
+## Construire la base de données
+
+```bash
+wazi make:migration creer_notes    # crée un fichier SQL, à remplir
+wazi db:migrate                    # applique les migrations en attente
+wazi db:status                     # montre où en est chaque migration
+```
+
+Ces trois commandes sont expliquées dans [La base de données](14-base-de-donnees.md).
 
 ## Créer un contrôleur
 
@@ -328,4 +341,4 @@ La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser 
 
 Une erreur dans `app.php` (un réglage manquant, une route mal écrite) empêche la console de démarrer, quelle que soit la commande. Elle vous dit laquelle, et où.
 
-Retour au [sommaire](../README.md).
+Suite : [La base de données](14-base-de-donnees.md).

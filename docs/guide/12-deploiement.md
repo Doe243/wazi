@@ -13,6 +13,7 @@ Avant d'ouvrir le site :
 - [ ] Derrière un proxy : `APP_TRUSTED_PROXIES` contient ses adresses.
 - [ ] Le dossier `var/` est inscriptible par PHP, et par lui seul.
 - [ ] `composer install --no-dev --optimize-autoloader` a été lancé.
+- [ ] `wazi db:migrate` a été lancé : la base a toutes ses tables.
 - [ ] `wazi views:compile` a été lancé, et le dossier `build/` n'est pas inscriptible par le serveur web.
 - [ ] `composer audit` ne signale rien.
 - [ ] Vous savez où lire le journal des erreurs.
@@ -145,6 +146,18 @@ composer install --no-dev --optimize-autoloader
 ```
 
 `--no-dev` n'installe pas les outils de développement (tests, analyse) : moins de code en ligne, moins de surface d'attaque.
+
+## Mettre la base à jour
+
+```bash
+wazi db:migrate
+```
+
+À lancer à chaque mise en ligne, après avoir déposé le code : la base reçoit les tables et les colonnes ajoutées depuis la dernière fois. La relancer ne fait rien de plus. Voir [La base de données](14-base-de-donnees.md).
+
+Le mot de passe de la base se donne par la variable d'environnement `DATABASE_URL` du serveur, ou par le fichier `.env` : jamais dans le code.
+
+Avec SQLite, la base est un fichier du dossier `var/`. PHP doit pouvoir écrire dans ce fichier **et** dans son dossier. Si vous lancez `wazi db:migrate` sous un autre compte que celui de PHP, redonnez ensuite le dossier à PHP (`chown`, comme ci-dessus). Et pensez à sauvegarder ce fichier : c'est toute votre base.
 
 ## Préparer les templates
 
