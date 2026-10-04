@@ -3,7 +3,7 @@
 Pendant que vous développez, Wazi ajoute une barre en bas de vos pages. Elle répond à la question que tout débutant se pose devant une page : **qu'est-ce qui vient de se passer ?**
 
 ```text
- W │ REQUÊTE GET /notes/3 · 200 · 12 ms │ ROUTE NoteController::voir │ MIDDLEWARES 3 │ TEMPLATES 1 · 7,0 ms │ SESSION 1 clé(s) │ WAZI PHP 8.5
+ W │ REQUÊTE GET /notes/3 · 200 · 12 ms │ ROUTE NoteController::voir │ MIDDLEWARES 3 │ TEMPLATES 1 · 7,0 ms │ BASE 2 · 0,8 ms │ SESSION 1 clé(s) │ WAZI PHP 8.5
 ```
 
 Cliquez sur une rubrique : elle se déplie au-dessus de la barre.
@@ -16,6 +16,7 @@ Cliquez sur une rubrique : elle se déplie au-dessus de la barre.
 | **Route** | Le motif de la route choisie, le code exécuté, ses paramètres, son rang, ses middlewares ; les routes qu'elle masque |
 | **Middlewares** | Ceux que traverse chaque requête, dans l'ordre |
 | **Templates** | Les templates écrits, et le temps de chacun |
+| **Base** | Les requêtes SQL de la page, avec leurs marqueurs (`?`) et leur durée ; une requête répétée en boucle est signalée |
 | **Session** | Le **nom** des clés de la session |
 | **Wazi** | Les versions de PHP et de Wazi |
 
@@ -36,6 +37,28 @@ Pour développer sans elle :
 ```php
 $app = new Kernel(development: true, debugBar: false);
 ```
+
+## Voir ses requêtes SQL
+
+La base de données est créée par votre `app.php` : c'est là qu'on lui dit de signaler ses requêtes à la barre.
+
+```php
+$app->container->set(Database::class, static fn(): Database => Database::fromUrl(
+    $config->string('DATABASE_URL', 'sqlite:var/app.sqlite'),
+    __DIR__,
+)->withTracer($app->tracer));
+```
+
+La rubrique **Base** liste alors chaque requête de la page, dans l'ordre, avec sa durée :
+
+```text
+1. 0,4 ms    SELECT * FROM notes WHERE auteur = ? ORDER BY id DESC
+2. 0,2 ms    SELECT COUNT(*) FROM notes WHERE auteur = ?
+```
+
+Vous y lisez le **texte** de la requête, tel que vous l'avez écrit, avec ses marqueurs. Jamais les valeurs : elles peuvent être des mots de passe ou des données personnelles.
+
+Si la même requête revient trois fois ou plus, la rubrique le signale. C'est presque toujours une requête lancée dans une boucle : aller chercher l'auteur de chaque note, une note à la fois, alors qu'une seule requête les rendrait tous.
 
 ## Quand elle n'apparaît pas
 
@@ -67,7 +90,6 @@ Malgré tout cela, la règle de base ne change pas : **un site en ligne ne tourn
 ## Les limites
 
 - Une requête envoyée par JavaScript, ou suivie d'une redirection, n'a pas de barre : il n'y a pas d'historique pour la retrouver.
-- Les requêtes SQL n'y figurent pas encore.
 - Si votre application réécrit la politique de sécurité de contenu pour interdire les styles écrits dans la page, la barre s'affiche sans mise en forme.
 
 Retour au [sommaire](../README.md).

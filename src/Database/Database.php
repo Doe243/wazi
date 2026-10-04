@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wazi\Database;
 
+use Wazi\Contracts\Tracer;
 use Wazi\Database\Exception\DatabaseException;
 
 /**
@@ -61,7 +62,12 @@ final class Database
     /** Le caractère qui neutralise « % » et « _ » dans un LIKE (voir likeEscape()). */
     private const string LIKE_ESCAPE = '!';
 
+    private const string NO_DISCARD = 'withTracer() ne modifie pas cette base : elle en retourne une copie. Gardez-la : $db = $db->withTracer($tracer);';
+
     private ?\PDO $pdo = null;
+
+    /** À qui signaler chaque requête et sa durée : la barre de débogage, en mode développement. */
+    private ?Tracer $tracer = null;
 
     /**
      * @param 'sqlite'|'mysql'|'pgsql' $driver
@@ -239,6 +245,24 @@ final class Database
         }
 
         throw DatabaseException::invalidUrl();
+    }
+
+    /**
+     * La même base, qui signale chacune de ses requêtes et sa durée.
+     *
+     *     $db = Database::fromUrl($url, __DIR__)->withTracer($app->tracer);
+     *
+     * En mode développement, $app->tracer est la barre de débogage : elle
+     * affiche les requêtes de la page. En production, il vaut null, et rien
+     * n'est signalé.
+     *
+     * Sécurité (ADR-035) : seul le TEXTE de la requête est signalé, avec ses
+     * marqueurs (« ? »). Jamais les valeurs, qui peuvent être des secrets.
+     */
+    #[\NoDiscard(self::NO_DISCARD)]
+    public function withTracer(?Tracer $tracer): self
+    {
+        return clone($this, ['tracer' => $tracer]);
     }
 
     /**
@@ -543,8 +567,13 @@ final class Database
             self::requireEveryValue($sql, $parameters, $positional);
         }
 
+        // La connexion s'ouvre ici si elle ne l'est pas : son temps n'est pas
+        // compté dans celui de la requête.
+        $pdo = $this->pdo();
+        $started = hrtime(true);
+
         try {
-            $statement = $this->pdo()->prepare($sql);
+            $statement = $pdo->prepare($sql);
 
             foreach ($bindings as [$marker, $bound, $type]) {
                 $statement->bindValue($marker, $bound, $type);
@@ -555,7 +584,20 @@ final class Database
             throw DatabaseException::queryFailed($sql, $error);
         }
 
+        // Sécurité : le texte de la requête, jamais ses valeurs.
+        $this->tracer?->record('sql', self::summary($sql), (hrtime(true) - $started) / 1_000_000);
+
         return $statement;
+    }
+
+    /**
+     * Le texte d'une requête, sur une ligne et raccourci, pour la barre de débogage.
+     */
+    private static function summary(string $sql): string
+    {
+        $line = trim(preg_replace('/\s+/', ' ', $sql) ?? '');
+
+        return mb_strlen($line) > 300 ? mb_substr($line, 0, 297) . '...' : $line;
     }
 
     /**

@@ -9,6 +9,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Wazi\Container\Container;
+use Wazi\Contracts\Tracer;
 use Wazi\Debug\DebugBar;
 use Wazi\Debug\Trace;
 use Wazi\Errors\ErrorHandler;
@@ -85,6 +86,14 @@ final readonly class Kernel implements RequestHandlerInterface
     /** Ce que les composants signalent à la barre ; null en production. */
     private ?Trace $trace;
 
+    /**
+     * À qui vos services peuvent signaler ce qu'ils font : la barre de
+     * débogage en mode développement, null en production.
+     *
+     *     Database::fromUrl($url, __DIR__)->withTracer($app->tracer)
+     */
+    public ?Tracer $tracer;
+
     /** La session de la requête, si des sessions sont réglées. */
     private ?Session $session;
 
@@ -132,6 +141,7 @@ final readonly class Kernel implements RequestHandlerInterface
         // de débogage n'est créé, ni même chargé.
         $this->debugBar = $development && $debugBar ? new DebugBar() : null;
         $this->trace = $this->debugBar !== null ? new Trace() : null;
+        $this->tracer = $this->trace;
         $trace = $this->trace;
 
         // Un seul jeton pour la requête, partagé par les deux qui en ont besoin :
