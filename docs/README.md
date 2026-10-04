@@ -39,6 +39,7 @@ La troisième, [la démonstration](../examples/demo/README.md), utilise tout ce 
 
 ## Pour aller plus loin
 
+- [Le journal des modifications](../CHANGELOG.md) : ce qui change d'une version à l'autre, et ce que promet un numéro de version.
 - [Les décisions d'architecture](decisions/) : pourquoi chaque pièce de Wazi est faite comme elle l'est. Une décision, un court document.
 - [L'identité visuelle](brand/README.md) : logos, couleurs, typographie.
 - Le code source lui-même : chaque classe de `src/` commence par un commentaire qui explique son rôle. Il est écrit pour être lu.
