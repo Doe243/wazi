@@ -7,6 +7,7 @@
  *     wazi                 la liste des commandes
  *     wazi serve           lance la démonstration sur votre ordinateur
  *     wazi routes          liste ses routes
+ *     wazi explain /notes/3    explique ce qu'une adresse traverse
  *
  * À taper depuis ce dossier (examples/demo). Si la commande « wazi » n'est
  * pas installée sur votre ordinateur, tapez « php wazi » à la place.
@@ -17,6 +18,7 @@ declare(strict_types=1);
 use Wazi\Console\Application;
 use Wazi\Console\Command\ServeCommand;
 use Wazi\Console\Output;
+use Wazi\Kernel\Command\ExplainCommand;
 use Wazi\Kernel\Command\RoutesCommand;
 use Wazi\Kernel\Kernel;
 
@@ -41,5 +43,6 @@ try {
 $console = new Application();
 $console->add(new ServeCommand(__DIR__));
 $console->add(new RoutesCommand($app->router));
+$console->add(new ExplainCommand($app));
 
 exit($console->run($argv));

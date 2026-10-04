@@ -147,6 +147,16 @@ Vérifiez son nom, et qu'elle est bien donnée au template. Pour prévoir son ab
 
 Lisez le message jusqu'au bout : la correction est presque toujours dans la dernière phrase.
 
+## Une page ne répond pas comme prévu
+
+Avant de chercher dans le code, demandez à Wazi ce que l'adresse traverse :
+
+```bash
+wazi explain notes/3
+```
+
+La commande montre la route choisie, chaque middleware traversé, et le code exécuté. Elle dit aussi pourquoi une adresse donne 404 ou 405. Voir [La console](13-console.md).
+
 ## Les limites
 
 L'apparence des pages d'erreur n'est pas encore réglable : elles reprennent les couleurs de Wazi, sans logo ni nom.

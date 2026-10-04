@@ -176,6 +176,19 @@ final readonly class Kernel implements RequestHandlerInterface
     }
 
     /**
+     * Les middlewares que traverse chaque requête avant le routeur, du plus
+     * extérieur au plus intérieur : ceux de Wazi, puis les vôtres.
+     *
+     * C'est une lecture, pour « wazi explain ».
+     *
+     * @return list<MiddlewareInterface|string>
+     */
+    public function middlewares(): array
+    {
+        return $this->middlewares;
+    }
+
+    /**
      * Répond à la requête reçue par PHP : c'est ce que fait votre fichier
      * public/index.php, une fois l'application chargée.
      */
