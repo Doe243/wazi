@@ -80,7 +80,7 @@ final readonly class NoteController
         $note = $this->carnet->trouver($id, $this->auteur());
 
         return $note === null
-            ? $this->kioo->page('notes/introuvable', ['id' => $id], 404)
+            ? $this->kioo->page('notes/introuvable', ['id' => $id, 'page' => 'notes'], 404)
             : $this->pageNote($note, $note['texte'], $note['couleur'], $note['importante']);
     }
 
@@ -90,7 +90,7 @@ final readonly class NoteController
         $note = $this->carnet->trouver($id, $this->auteur());
 
         if ($note === null) {
-            return $this->kioo->page('notes/introuvable', ['id' => $id], 404);
+            return $this->kioo->page('notes/introuvable', ['id' => $id, 'page' => 'notes'], 404);
         }
 
         $v = new Validator($request->getParsedBody());
@@ -155,6 +155,8 @@ final readonly class NoteController
         $toutes = $this->carnet->de($this->auteur());
 
         return $this->kioo->page('notes/liste', [
+            // Pour la mise en page : le lien « Mes notes » du bandeau est marqué.
+            'page' => 'notes',
             'notes' => $this->carnet->de($this->auteur(), $recherche, $importantesSeules),
             'total' => count($toutes),
             'importantes' => count(array_filter($toutes, static fn(array $note): bool => $note['importante'])),
@@ -182,6 +184,7 @@ final readonly class NoteController
     private function pageNote(array $note, string $saisie, string $couleur, bool $importante, ?string $erreur = null, int $statut = 200): ResponseInterface
     {
         return $this->kioo->page('notes/note', [
+            'page' => 'notes',
             'note' => $note,
             'couleurs' => Carnet::COULEURS,
             'saisie' => $saisie,

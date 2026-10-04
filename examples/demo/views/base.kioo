@@ -22,16 +22,19 @@
 
 <header class="bandeau">
     <div class="bandeau-interieur">
-        <a class="marque" href="/" aria-label="Carnet, accueil">
+        <a class="marque" href="/" aria-label="Wazi, démonstration : accueil">
             <svg width="38" height="28" viewBox="0 0 76 56" fill="none" aria-hidden="true">
                 <path class="marque-gauche" d="M6 8 L24 48 L40 14" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
                 <path class="marque-droite" d="M36 14 L52 48 L70 8" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
             </svg>
-            <span>carnet</span>
+            <span>wazi</span>
+            <span class="etiquette">démo</span>
         </a>
 
         <nav aria-label="Navigation principale">
-            <a class="lien-nav" href="/notes">Mes notes</a>
+            <!-- « page » est donné par le contrôleur des notes. aria-current marque le
+                 lien de la page affichée ; quand la valeur est null, Kioo retire l'attribut. -->
+            <a class="lien-nav" href="/notes" aria-current="{(page ?? '') == 'notes' ? 'page' : null}">Mes notes</a>
 
             <!-- Caché tant que le script n'est pas chargé : sans JavaScript, le
                  thème suit simplement le réglage de l'appareil. -->
