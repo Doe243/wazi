@@ -31,7 +31,7 @@ Trois applications à lancer et à lire, de la plus simple à la plus complète.
 ```bash
 php -S localhost:8000 examples/bonjour.php          # un seul fichier, des routes écrites comme des fonctions
 php -S localhost:8000 examples/carnet/index.php     # un contrôleur, un service, des pages en Kioo
-php -S localhost:8000 -t examples/demo/public       # une application complète, rangée comme un vrai projet
+cd examples/demo && php wazi serve                  # une application complète, rangée comme un vrai projet
 ```
 
 La troisième, [la démonstration](../examples/demo/README.md), utilise tout ce que décrit ce guide.

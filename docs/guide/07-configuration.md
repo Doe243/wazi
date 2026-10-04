@@ -77,7 +77,7 @@ Un nom ne peut pas commencer par `HTTP_` : sur certains serveurs, ces variables 
 
 ## Donner un réglage à un service
 
-`Config` se lit dans `public/index.php`, et les valeurs sont **données** aux services qui en ont besoin :
+`Config` se lit dans `app.php`, et les valeurs sont **données** aux services qui en ont besoin :
 
 ```php
 $app->container->set(Messagerie::class, fn () => new Messagerie(

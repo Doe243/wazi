@@ -123,7 +123,7 @@ Les filtres s'enchaînent : `{titre | trim | upper}`.
 
 ### Vos propres filtres
 
-Un filtre est une fonction. Ajoutez-la dans `public/index.php`, après avoir créé le noyau :
+Un filtre est une fonction. Ajoutez-la dans `app.php`, après avoir créé le noyau :
 
 ```php
 use Wazi\View\Kioo;
@@ -241,7 +241,7 @@ Les règles :
 
 ### Les variables que toutes les pages affichent
 
-La mise en page affiche souvent des valeurs communes : le nom du visiteur dans le bandeau, l'année dans le pied de page. Plutôt que de les passer depuis chaque contrôleur, partagez-les une fois, dans `public/index.php` :
+La mise en page affiche souvent des valeurs communes : le nom du visiteur dans le bandeau, l'année dans le pied de page. Plutôt que de les passer depuis chaque contrôleur, partagez-les une fois, dans `app.php` :
 
 ```php
 $kioo = $app->container->get(Kioo::class);
@@ -259,7 +259,7 @@ $session = $app->container->get(Session::class);
 $kioo->share('utilisateur', fn () => $session->get('utilisateur'));
 ```
 
-Une variable de même nom donnée à une page l'emporte sur la variable partagée. La démonstration s'en sert dans [`public/index.php`](../../examples/demo/public/index.php).
+Une variable de même nom donnée à une page l'emporte sur la variable partagée. La démonstration s'en sert dans [`app.php`](../../examples/demo/app.php).
 
 ### Inclure un morceau
 

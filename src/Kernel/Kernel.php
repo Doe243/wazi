@@ -14,10 +14,12 @@ use Wazi\Http\CspNonce;
 use Wazi\Http\CsrfToken;
 use Wazi\Http\Exception\EmitterException;
 use Wazi\Http\Exception\InvalidMiddlewareException;
+use Wazi\Http\LocalPath;
 use Wazi\Http\Pipeline;
 use Wazi\Http\ResponseEmitter;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Http\Session;
+use Wazi\Kernel\Exception\KernelException;
 use Wazi\Middleware\CsrfCookie;
 use Wazi\Middleware\CsrfProtection;
 use Wazi\Middleware\FileSessionStore;
@@ -143,8 +145,39 @@ final readonly class Kernel implements RequestHandlerInterface
     }
 
     /**
-     * Répond à la requête reçue par PHP : c'est la seule ligne à écrire à la
-     * fin de votre fichier public/index.php.
+     * Charge l'application construite par le fichier app.php de votre projet.
+     *
+     *     // public/index.php
+     *     Kernel::load(__DIR__ . '/../app.php')->run();
+     *
+     * app.php crée le noyau, déclare les services et les routes, et se termine
+     * par « return $app; ». Le site et la console le chargent tous les deux :
+     * ils partagent ainsi exactement la même application (ADR-027).
+     *
+     * @param string $file le chemin de app.php, écrit dans votre code
+     *
+     * @throws KernelException si le fichier est introuvable, ou s'il ne retourne pas un Kernel
+     */
+    public static function load(string $file): self
+    {
+        // Sécurité : seul un fichier ordinaire est chargé, jamais une adresse
+        // à protocole (http://, phar://...). Ce chemin vient de votre code,
+        // jamais d'une requête.
+        if (!LocalPath::isPlain($file) || !is_file($file)) {
+            throw KernelException::applicationFileNotFound($file);
+        }
+
+        // Une fonction à part : les variables de app.php ne se mêlent à aucune autre.
+        $application = (static fn(): mixed => require $file)();
+
+        return $application instanceof self
+            ? $application
+            : throw KernelException::applicationNotReturned($file, get_debug_type($application));
+    }
+
+    /**
+     * Répond à la requête reçue par PHP : c'est ce que fait votre fichier
+     * public/index.php, une fois l'application chargée.
      */
     public function run(): void
     {

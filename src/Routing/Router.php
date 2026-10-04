@@ -218,6 +218,19 @@ final class Router implements RequestHandlerInterface
         }
     }
 
+    /**
+     * Les routes déclarées, dans l'ordre où le routeur les essaie.
+     *
+     * C'est une lecture : la liste rendue est une copie, et une Route ne se
+     * modifie pas. La console s'en sert pour « wazi routes ».
+     *
+     * @return list<Route>
+     */
+    public function routes(): array
+    {
+        return $this->routes;
+    }
+
     // ------------------------------------------------------------------
     // Répondre à une requête
     // ------------------------------------------------------------------

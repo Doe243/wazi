@@ -39,6 +39,7 @@ Utilisation : wazi <commande> [arguments] [--options]
 
 Commandes :
   messages  Affiche les messages reçus par le formulaire de contact.
+  routes    Liste les routes de l'application : adresse, code exécuté, middlewares.
   serve     Lance le site sur votre ordinateur, pour développer.
 
 Pour le détail d'une commande : wazi <commande> --help
@@ -63,6 +64,25 @@ Il n'écoute que sur `localhost` : seul votre ordinateur peut l'atteindre. Pour 
 ```bash
 wazi serve --host=192.168.1.20
 ```
+
+## Voir ses routes
+
+```bash
+wazi routes
+```
+
+```text
+4 route(s), dans l'ordre où le routeur les essaie
+
+GET   /          App\PageController::accueil
+GET   /a-propos  App\PageController::aPropos
+GET   /contact   App\ContactController::formulaire
+POST  /contact   App\ContactController::envoyer
+```
+
+Pour chaque route : la méthode, l'adresse, le code qui s'exécute, et les middlewares posés sur elle. L'ordre est celui de vos déclarations, donc celui dans lequel le routeur les essaie : si une adresse à paramètre en masque une autre, cela se voit ici.
+
+La commande lit l'application construite par `app.php`, la même que celle que sert le site.
 
 ## Comment s'écrit une commande
 
@@ -142,6 +162,12 @@ Puis déclarez-la dans le fichier `wazi` de votre projet, à côté des autres :
 $console->add(new BonjourCommand());
 ```
 
+Si votre commande a besoin d'un service, demandez-le au conteneur de l'application, comme pour un contrôleur :
+
+```php
+$console->add(new MessagesCommand($app->container->get(Messagerie::class)));
+```
+
 ```bash
 wazi bonjour Alice --fort --fois=2
 ```
@@ -198,6 +224,8 @@ La couleur vient de ces méthodes. Elle n'est utilisée que dans un terminal : r
 
 ## Les limites
 
-La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser une question), ni de commandes pour générer du code ou inspecter les routes : elles sont prévues.
+La console est à ses débuts. Elle n'a pas encore de saisie interactive (poser une question), ni de commandes pour générer du code : elles sont prévues.
+
+Une erreur dans `app.php` (un réglage manquant, une route mal écrite) empêche la console de démarrer, quelle que soit la commande. Elle vous dit laquelle, et où.
 
 Retour au [sommaire](../README.md).

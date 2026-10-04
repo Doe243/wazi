@@ -72,14 +72,15 @@ Un seul fichier suffit pour essayer. Dès que le projet grandit, on le range ain
 
 ```text
 mon-projet/
+├── app.php            Votre application : réglages, services, routes
 ├── public/            Le SEUL dossier visible depuis un navigateur
-│   ├── index.php      Le point d'entrée : toutes les requêtes passent par lui
+│   ├── index.php      Le point d'entrée : charge app.php et répond
 │   └── app.css        Les fichiers servis tels quels : styles, scripts, images
 ├── src/               Votre code : contrôleurs, services
 ├── views/             Vos templates Kioo
 ├── var/               Ce que l'application écrit : sessions, fichiers
 ├── .env               Vos réglages et vos secrets (jamais partagé)
-├── wazi               La console du projet : « wazi »
+├── wazi               La console du projet : charge app.php et exécute une commande
 └── vendor/            Les bibliothèques installées par Composer
 ```
 
@@ -95,7 +96,9 @@ Voir [La console](13-console.md).
 
 L'application [de démonstration](../../examples/demo/README.md) est rangée exactement ainsi. C'est le meilleur modèle à copier.
 
-Un `public/index.php` complet ressemble à ceci :
+### `app.php` : l'application, construite une fois
+
+Dans un projet rangé, l'application ne se construit plus dans `index.php` mais dans un fichier à part, `app.php`, à la racine. Il lit les réglages, crée le noyau, déclare les services et les routes, puis **retourne** l'application :
 
 ```php
 <?php
@@ -106,10 +109,7 @@ use Wazi\Config\Config;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Kernel\Kernel;
 
-require __DIR__ . '/../vendor/autoload.php';
-
-$racine = dirname(__DIR__);
-$config = Config::fromEnvFile($racine . '/.env');
+$config = Config::fromEnvFile(__DIR__ . '/.env');
 
 $app = new Kernel(
     development: $config->bool('APP_DEBUG', false),
@@ -117,16 +117,36 @@ $app = new Kernel(
         trustedHosts: $config->list('APP_HOSTS', []),
         trustedProxies: $config->list('APP_TRUSTED_PROXIES', []),
     ),
-    views: $racine . '/views',
-    sessions: $racine . '/var/sessions',
+    views: __DIR__ . '/views',
+    sessions: __DIR__ . '/var/sessions',
 );
 
 $app->router->addController(App\ArticleController::class);
 
-$app->run();
+return $app;
 ```
 
 Chaque argument est expliqué dans la page qui le concerne. Aucun n'est obligatoire : `new Kernel()` fonctionne.
+
+`public/index.php` n'a alors plus que deux lignes utiles : charger les classes, puis charger l'application et lui demander de répondre.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Wazi\Kernel\Kernel;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+Kernel::load(__DIR__ . '/../app.php')->run();
+```
+
+`Kernel::load()` charge `app.php` et vérifie qu'il a bien retourné l'application. Si vous oubliez le `return $app;`, il vous le dit.
+
+Pourquoi deux fichiers ? Parce que le site n'est pas seul à avoir besoin de l'application. La console la charge aussi, par exemple pour lister vos routes (`wazi routes`). En la construisant à un seul endroit, le site et la console voient exactement la même chose.
+
+Une conséquence : `app.php` est exécuté à chaque commande de la console. On y **déclare** ; on n'y écrit pas dans un fichier, on n'y envoie pas de courriel.
 
 ## Le chemin d'une requête
 
@@ -136,7 +156,7 @@ Quand un navigateur demande une page, voici ce qui se passe, dans l'ordre :
 navigateur
     │
     ▼
-public/index.php          crée le noyau, déclare les routes
+public/index.php          charge app.php, qui crée le noyau et déclare les routes
     │
     ▼
 Kernel                    construit la requête à partir de ce que PHP a reçu
