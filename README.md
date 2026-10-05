@@ -30,6 +30,7 @@ Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre
 | --- | --- |
 | **Routes et contrôleurs** | Adresses avec paramètres, routes écrites à côté de leur code (`#[Get('/notes/{id:int}')]`), dépendances fournies par le conteneur |
 | **Templates Kioo** | Des pages HTML ordinaires, quelques attributs en plus, tout ce qui s'affiche est échappé |
+| **Zones mises à jour** | Un formulaire ou un lien ne remplace qu'un morceau de la page, sans la recharger ; le contrôleur ne change pas, et tout marche sans JavaScript |
 | **Formulaires** | Protection contre la falsification de requête sans rien écrire, validation champ par champ |
 | **Base de données** | SQLite, MySQL, PostgreSQL ; du SQL en clair, des valeurs toujours à part, des migrations |
 | **Sessions et configuration** | Connexion, messages d'une page à l'autre, réglages et secrets hors du code |
@@ -115,7 +116,7 @@ composer create-project wazi/skeleton mon-projet
 
 ## Documentation
 
-- [Le guide](docs/README.md), en quinze pages, de la première route à la mise en ligne.
+- [Le guide](docs/README.md), en seize pages, de la première route à la mise en ligne.
 - [Le journal des modifications](CHANGELOG.md) : ce qui change d'une version à l'autre.
 - [Les décisions d'architecture](docs/decisions/) : pourquoi chaque pièce est faite comme elle l'est.
 

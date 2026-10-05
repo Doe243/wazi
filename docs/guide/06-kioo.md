@@ -305,6 +305,10 @@ On n'écrit donc pas une valeur dans du code JavaScript. On la dépose à côté
 
 Kioo ajoute de lui-même, à chaque `<form method="post">` envoyé à votre site, le champ caché du jeton de protection. Vous n'écrivez rien. Voir [Les formulaires](09-formulaires.md).
 
+## Mettre à jour un morceau de page
+
+`k:zone` marque un morceau de page, et `k:update`, sur un formulaire ou un lien, le met à jour sans recharger la page. Voir [Les zones mises à jour](16-zones.md).
+
 ## Écrire du HTML tel quel
 
 Pour afficher du HTML que **vous** avez produit et que vous savez sûr :

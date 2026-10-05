@@ -61,6 +61,8 @@ Commandes :
   make:migration   Crée un fichier de migration : un changement de la structure de la base, en SQL.
  views
   views:compile    Prépare les templates à l'avance, pour la mise en ligne.
+ zones
+  zones:install    Installe public/wazi.js : le script qui met à jour des morceaux de page sans la recharger.
 
 Pour le détail d'une commande : wazi <commande> --help
 ```

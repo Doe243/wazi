@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 use Wazi\Console\Application;
 use Wazi\Console\Command\ServeCommand;
+use Wazi\Console\Command\ZonesInstallCommand;
 use Wazi\Console\Output;
 use Wazi\Database\Database;
 use Wazi\Database\Migrator;
@@ -53,6 +54,7 @@ $console->add(new ServeCommand(__DIR__));
 $console->add(new RoutesCommand($app->router));
 $console->add(new ExplainCommand($app));
 $console->add(new ViewsCompileCommand($app->container->get(Kioo::class)));
+$console->add(new ZonesInstallCommand(__DIR__));
 
 // La base de données : les migrations sont les fichiers du dossier migrations/.
 $migrator = new Migrator($app->container->get(Database::class), __DIR__ . '/migrations');

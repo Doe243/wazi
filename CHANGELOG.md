@@ -10,7 +10,11 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 
 ## À venir
 
-Rien pour l'instant.
+### Ajouté
+- **Zones mises à jour** (décision 036) : dans un template, `k:zone="liste"` marque un morceau de page, et `k:update="liste"`, sur un formulaire ou un lien, le met à jour sans recharger la page. Le contrôleur ne change pas : il répond la même page, dont le script `wazi.js` ne garde que les zones nommées. Sans JavaScript, tout marche comme avant.
+- Commande `wazi zones:install` : installe `public/wazi.js`, ou le met à jour. À déclarer dans le fichier `wazi` du projet : `$console->add(new ZonesInstallCommand(__DIR__));`.
+- Guide : page « Les zones mises à jour ».
+- Démonstration : la page des notes ajoute, cherche, filtre et supprime sans se recharger.
 
 ## 0.5.0 « Ça se voit » — 2026-10-05
 

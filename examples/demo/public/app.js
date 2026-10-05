@@ -29,25 +29,30 @@ if (boutonTheme) {
     });
 }
 
+// --- Les zones mises à jour ---------------------------------------------------
+//
+// Sur la page des notes, des morceaux de page sont remplacés sans rechargement
+// par wazi.js (voir k:zone et k:update dans views/notes/liste.kioo). Une note
+// ajoutée, c'est une nouvelle carte que ce script n'a jamais vue.
+//
+// C'est pourquoi tout ce qui suit écoute sur « document » : un clic sur une
+// carte arrivée après coup remonte jusqu'à lui comme les autres.
+
 // --- Le nombre de caractères restants -----------------------------------------
 
-for (const zone of document.querySelectorAll('textarea[data-compteur]')) {
+const compter = (zone) => {
     const affichage = document.getElementById(zone.dataset.compteur);
-    const maximum = zone.maxLength;
+    const reste = zone.maxLength - zone.value.length;
 
-    const compter = () => {
-        const reste = maximum - zone.value.length;
+    affichage.textContent = zone.value.length + ' / ' + zone.maxLength;
+    affichage.classList.toggle('presque', reste <= 20);
+};
 
-        affichage.textContent = zone.value.length + ' / ' + maximum;
-        affichage.classList.toggle('presque', reste <= 20);
-    };
-
-    zone.addEventListener('input', compter);
-
-    if (zone.value !== '') {
-        compter();
+document.addEventListener('input', (evenement) => {
+    if (evenement.target.matches('textarea[data-compteur]')) {
+        compter(evenement.target);
     }
-}
+});
 
 // --- Confirmer avant de supprimer -----------------------------------------------
 
@@ -56,18 +61,24 @@ const fenetre = document.getElementById('confirmation');
 if (fenetre && typeof fenetre.showModal === 'function') {
     let formulaireEnAttente = null;
 
-    for (const formulaire of document.querySelectorAll('form[data-confirmer]')) {
-        formulaire.addEventListener('submit', (evenement) => {
-            // Le second passage, après « Supprimer » : on laisse partir le formulaire.
-            if (formulaire === formulaireEnAttente) {
-                return;
-            }
+    document.addEventListener('submit', (evenement) => {
+        const formulaire = evenement.target;
 
-            evenement.preventDefault();
-            formulaireEnAttente = formulaire;
-            fenetre.showModal();
-        });
-    }
+        if (!formulaire.matches('form[data-confirmer]')) {
+            return;
+        }
+
+        // Le second passage, après « Supprimer » : on laisse partir le formulaire.
+        // wazi.js, qui écoute après ce script, l'envoie alors sans recharger la page.
+        if (formulaire === formulaireEnAttente) {
+            formulaireEnAttente = null;
+            return;
+        }
+
+        evenement.preventDefault();
+        formulaireEnAttente = formulaire;
+        fenetre.showModal();
+    });
 
     for (const bouton of fenetre.querySelectorAll('button')) {
         bouton.addEventListener('click', () => fenetre.close(bouton.value));
@@ -91,38 +102,67 @@ if (fenetre && typeof fenetre.showModal === 'function') {
 // Le jeton de protection, écrit dans la page par le template (voir liste.kioo).
 const jeton = document.querySelector('meta[name="jeton"]')?.content;
 
-if (jeton) {
-    for (const note of document.querySelectorAll('[data-note]')) {
-        const bouton = note.querySelector('.epingle');
-
+// Les boutons d'épingle sont cachés dans le HTML : ils n'apparaissent que si
+// ce script fonctionne.
+const montrerLesEpingles = () => {
+    for (const bouton of document.querySelectorAll('[data-note] .epingle')) {
         bouton.hidden = false;
+    }
+};
 
-        bouton.addEventListener('click', async () => {
-            const reponse = await fetch('/notes/' + note.dataset.note + '/importante', {
-                method: 'PATCH',
-                // Sans cet en-tête, Wazi refuse la requête (403) : rien ne prouverait
-                // qu'elle vient d'une page de ce site.
-                headers: { 'X-CSRF-Token': jeton },
-            });
+if (jeton) {
+    montrerLesEpingles();
 
-            if (!reponse.ok) {
-                // Session expirée, note supprimée dans un autre onglet... : on recharge.
-                location.reload();
-                return;
+    // « wazi:updated » : wazi.js vient de remplacer des zones. Les cartes sont
+    // neuves, leurs boutons sont de nouveau cachés.
+    document.addEventListener('wazi:updated', () => {
+        montrerLesEpingles();
+
+        for (const zone of document.querySelectorAll('textarea[data-compteur]')) {
+            if (zone.value !== '') {
+                compter(zone);
             }
+        }
+    });
 
-            const { importante } = await reponse.json();
+    document.addEventListener('click', async (evenement) => {
+        const bouton = evenement.target.closest('.epingle');
+        const note = bouton?.closest('[data-note]');
 
-            note.classList.toggle('importante', importante);
-            bouton.setAttribute('aria-pressed', importante ? 'true' : 'false');
+        if (!note) {
+            return;
+        }
 
-            // Le compteur de l'en-tête : une épinglée de plus, ou de moins.
-            const compte = document.getElementById('compte');
-
-            compte.textContent = compte.textContent.replace(
-                /dont (\d+)/,
-                (texte, nombre) => 'dont ' + (Number(nombre) + (importante ? 1 : -1)),
-            );
+        const reponse = await fetch('/notes/' + note.dataset.note + '/importante', {
+            method: 'PATCH',
+            // Sans cet en-tête, Wazi refuse la requête (403) : rien ne prouverait
+            // qu'elle vient d'une page de ce site.
+            headers: { 'X-CSRF-Token': jeton },
         });
+
+        if (!reponse.ok) {
+            // Session expirée, note supprimée dans un autre onglet... : on recharge.
+            location.reload();
+            return;
+        }
+
+        const { importante } = await reponse.json();
+
+        note.classList.toggle('importante', importante);
+        bouton.setAttribute('aria-pressed', importante ? 'true' : 'false');
+
+        // Le compteur de l'en-tête : une épinglée de plus, ou de moins.
+        const compte = document.getElementById('compte');
+
+        compte.textContent = compte.textContent.replace(
+            /dont (\d+)/,
+            (texte, nombre) => 'dont ' + (Number(nombre) + (importante ? 1 : -1)),
+        );
+    });
+}
+
+for (const zone of document.querySelectorAll('textarea[data-compteur]')) {
+    if (zone.value !== '') {
+        compter(zone);
     }
 }
