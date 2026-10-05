@@ -19,6 +19,7 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 - Démonstration : les notes sont gardées dans une base SQLite (deux migrations, `wazi db:migrate`) au lieu d'un fichier ; la barre de débogage y montre les requêtes de chaque page.
 - Démonstration : « wazi » à côté du signe, halos de lumière en fond de page, lien de la page affichée marqué dans le bandeau, et les six étapes du chemin d'une requête s'ouvrent au clic pour montrer leur code. Couleurs du thème sombre alignées sur l'identité.
 - Identité visuelle : thème sombre, échelle d'espacements, règles de relief et d'accessibilité (`docs/brand/`).
+- Le projet vit désormais dans l'organisation GitHub `wazi-php` ; les anciennes adresses redirigent.
 - Dépôt : guide de contribution (`CONTRIBUTING.md`), code de conduite, modèles de demande de fusion et d'issue, mises à jour de dépendances proposées par Dependabot ; une page de publication GitHub est créée à chaque tag, avec le texte de ce journal.
 
 ## 0.4.0 « Ça se construit » — 2026-10-04

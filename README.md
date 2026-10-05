@@ -10,8 +10,8 @@
 <p align="center"><em>« clair, ouvert, évident » en swahili</em></p>
 
 <p align="center">
-  <a href="https://github.com/Doe243/wazi/actions/workflows/ci.yml"><img src="https://github.com/Doe243/wazi/actions/workflows/ci.yml/badge.svg?branch=main" alt="Intégration continue"></a>
-  <a href="https://github.com/Doe243/wazi/releases"><img src="https://img.shields.io/github/v/tag/Doe243/wazi?label=version&color=0B6E70" alt="Dernière version"></a>
+  <a href="https://github.com/wazi-php/wazi/actions/workflows/ci.yml"><img src="https://github.com/wazi-php/wazi/actions/workflows/ci.yml/badge.svg?branch=main" alt="Intégration continue"></a>
+  <a href="https://github.com/wazi-php/wazi/releases"><img src="https://img.shields.io/github/v/tag/wazi-php/wazi?label=version&color=0B6E70" alt="Dernière version"></a>
   <img src="https://img.shields.io/badge/PHP-8.5%2B-4f5b93" alt="PHP 8.5 ou plus">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2ea44f" alt="Licence MIT"></a>
 </p>
@@ -92,7 +92,7 @@ final readonly class NoteController
 Il faut PHP 8.5 et Composer. Wazi n'est pas encore publié sur Packagist : pour l'instant, on l'essaie depuis ce dépôt.
 
 ```bash
-git clone https://github.com/Doe243/wazi.git
+git clone https://github.com/wazi-php/wazi.git
 cd wazi
 composer install
 ```
@@ -107,7 +107,7 @@ cd examples/demo && php wazi serve                  # une application complète,
 
 La troisième, [la démonstration](examples/demo/README.md), montre une connexion, un carnet de notes par utilisateur, des formulaires protégés et des réglages.
 
-Le jour de la publication, un projet se créera en une commande, à partir du [projet de départ](https://github.com/Doe243/wazi-skeleton) :
+Le jour de la publication, un projet se créera en une commande, à partir du [projet de départ](https://github.com/wazi-php/wazi-skeleton) :
 
 ```bash
 composer create-project wazi/skeleton mon-projet

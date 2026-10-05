@@ -10,7 +10,7 @@
 Wazi n'est pas encore publié sur Packagist, l'annuaire de Composer. En attendant, on récupère le dépôt :
 
 ```bash
-git clone https://github.com/Doe243/wazi.git
+git clone https://github.com/wazi-php/wazi.git
 cd wazi
 composer install
 ```
