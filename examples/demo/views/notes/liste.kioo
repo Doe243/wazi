@@ -9,13 +9,17 @@
 <header class="tete-de-page">
     <div>
         <h1>Mes notes</h1>
-        <p class="compte-notes" id="compte">{total} note(s), dont {importantes} épinglée(s)</p>
+        <p class="compte-notes" id="compte" k:zone="compte">{total} note(s), dont {importantes} épinglée(s)</p>
     </div>
 
     <!-- Une recherche ne change rien : c'est un formulaire GET. Ce qui est saisi
          part dans l'adresse (/notes?q=pain), que l'on peut garder ou partager.
-         Kioo n'ajoute pas de jeton à un formulaire GET. -->
-    <form method="get" action="/notes" class="recherche" role="search">
+         Kioo n'ajoute pas de jeton à un formulaire GET.
+
+         k:update : au lieu de recharger la page, le script de Wazi demande la même
+         adresse et ne remplace que les zones nommées. L'adresse change quand même
+         dans la barre du navigateur. -->
+    <form method="get" action="/notes" class="recherche" role="search" k:zone="recherche" k:update="recherche, filtres, liste">
         <svg class="icone" aria-hidden="true"><use href="/icones.svg#loupe"></use></svg>
         <label class="lecteur" for="q">Chercher dans mes notes</label>
         <input id="q" name="q" type="search" value="{recherche}" placeholder="Chercher…" maxlength="60">
@@ -23,13 +27,15 @@
     </form>
 </header>
 
-<section class="carte redaction">
+<!-- Toute cette carte est une zone : après un ajout elle revient vide, après
+     un refus elle revient avec le message d'erreur et ce qui avait été saisi. -->
+<section class="carte redaction" k:zone="redaction">
     <p k:if="(erreur ?? null) != null" class="message erreur" role="alert">
         <svg class="icone" aria-hidden="true"><use href="/icones.svg#panne"></use></svg>
         {erreur}
     </p>
 
-    <form method="post" action="/notes" class="formulaire">
+    <form method="post" action="/notes" class="formulaire" k:update="messages, redaction, compte, filtres, liste">
         <label class="lecteur" for="texte">Nouvelle note</label>
         <textarea id="texte" name="texte" rows="2" maxlength="{longueur_max}" placeholder="Une idée, une course, un rappel…" required data-compteur="reste">{saisie}</textarea>
 
@@ -44,15 +50,15 @@
     </form>
 </section>
 
-<nav class="filtres" aria-label="Filtrer les notes">
+<nav class="filtres" aria-label="Filtrer les notes" k:zone="filtres">
     <!-- aria-current dit quel filtre est actif ; l'attribut est retiré quand la valeur est fausse. -->
-    <a href="{lien_toutes}" class="filtre" aria-current="{filtre == 'toutes' ? 'page' : false}">Toutes</a>
-    <a href="{lien_importantes}" class="filtre" aria-current="{filtre == 'importantes' ? 'page' : false}">
+    <a href="{lien_toutes}" class="filtre" k:update="recherche, filtres, liste" aria-current="{filtre == 'toutes' ? 'page' : false}">Toutes</a>
+    <a href="{lien_importantes}" class="filtre" k:update="recherche, filtres, liste" aria-current="{filtre == 'importantes' ? 'page' : false}">
         <svg class="icone" aria-hidden="true"><use href="/icones.svg#epingle"></use></svg>
         Épinglées
     </a>
     <span k:if="recherche != ''" class="aide">
-        {notes | length} résultat(s) pour « {recherche} » · <a href="/notes">tout afficher</a>
+        {notes | length} résultat(s) pour « {recherche} » · <a href="/notes" k:update="recherche, filtres, liste">tout afficher</a>
     </span>
 </nav>
 
@@ -63,7 +69,7 @@
        épingle depuis la page de la note ;
      - supprimer change quelque chose, c'est donc un formulaire POST. Le script demande une
        confirmation ; sans JavaScript, la note est supprimée directement. -->
-<ul class="notes">
+<ul class="notes" k:zone="liste">
     <li k:for="note in notes" class="note {note.couleur} {note.importante ? 'importante' : ''}" data-note="{note.id}">
         <a class="note-texte" href="/notes/{note.id}">{note.texte}</a>
 
@@ -77,7 +83,7 @@
                 <a class="bouton-icone" href="/notes/{note.id}" aria-label="Modifier cette note">
                     <svg class="icone" aria-hidden="true"><use href="/icones.svg#crayon"></use></svg>
                 </a>
-                <form method="post" action="/notes/{note.id}/supprimer" data-confirmer>
+                <form method="post" action="/notes/{note.id}/supprimer" data-confirmer k:update="messages, compte, filtres, liste">
                     <button class="bouton-icone danger" aria-label="Supprimer cette note">
                         <svg class="icone" aria-hidden="true"><use href="/icones.svg#corbeille"></use></svg>
                     </button>

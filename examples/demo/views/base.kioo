@@ -15,6 +15,10 @@
     <script src="/theme.js"></script>
     <!-- « defer » : chargé sans bloquer, exécuté une fois la page lue. -->
     <script src="/app.js" defer></script>
+    <!-- Le script de Wazi, installé par « wazi zones:install ». Grâce à lui, un
+         formulaire ou un lien marqué k:update ne remplace que des morceaux de la
+         page (les k:zone) au lieu de la recharger. Sans lui, tout marche quand même. -->
+    <script src="/wazi.js" defer></script>
     <k:block name="entete"></k:block>
 </head>
 <body>
@@ -58,7 +62,10 @@
 <main id="contenu">
     <!-- « messages », « utilisateur » et « annee » ne sont passés par aucun contrôleur :
          public/index.php les partage avec tous les templates (Kioo::share). -->
-    <k:include file="partiels/messages">
+    <!-- Une zone : après l'ajout ou la suppression d'une note, le message s'y affiche. -->
+    <div k:zone="messages">
+        <k:include file="partiels/messages">
+    </div>
     <k:block name="content"></k:block>
 </main>
 

@@ -46,7 +46,15 @@ final class TemplateParser
     private const array REQUIRED_ATTRIBUTE = ['k:layout' => 'name', 'k:block' => 'name', 'k:include' => 'file', 'k:json' => 'id'];
 
     /** Les attributs de Kioo. */
-    private const array KIOO_ATTRIBUTES = ['k:if', 'k:else', 'k:for'];
+    private const array KIOO_ATTRIBUTES = ['k:if', 'k:else', 'k:for', 'k:zone', 'k:update'];
+
+    /** Le nom d'une zone : liste, compteur, panier-total. */
+    private const string ZONE_NAME = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D';
+
+    private const int ZONE_NAME_MAX = 40;
+
+    /** Les balises qui ne peuvent pas être une zone : la page entière, ou ce que le navigateur n'affiche pas. */
+    private const array NEVER_A_ZONE = ['html', 'head', 'body', 'title', 'script', 'style'];
 
     /** k:for="note in notes" ou k:for="cle, note in notes". */
     private const string FOR = '/^\s*(?:([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*)?([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.+)$/Ds';
@@ -79,6 +87,9 @@ final class TemplateParser
     /** Vrai si le template commence par <k:layout> : ses <k:block> remplissent alors une mise en page. */
     private bool $hasLayout = false;
 
+    /** @var array<string, int> Les zones déjà rencontrées dans ce template : nom => ligne. */
+    private array $zones = [];
+
     public function __construct(private readonly Parser $expressions = new Parser()) {}
 
     /**
@@ -99,6 +110,7 @@ final class TemplateParser
         $this->open = [];
         $this->root = [];
         $this->hasLayout = false;
+        $this->zones = [];
 
         while ($this->position < $this->length) {
             match (true) {
@@ -392,6 +404,7 @@ final class TemplateParser
         $condition = null;
         $loop = null;
         $isElse = false;
+        $zone = null;
         $kept = [];
 
         foreach ($attributes as $attribute) {
@@ -407,6 +420,8 @@ final class TemplateParser
                 'k:if' => $condition = $this->directiveExpression('k:if', $value, $attribute->line),
                 'k:for' => $loop = $this->loop($value, $attribute->line),
                 'k:else' => $isElse = true,
+                'k:zone' => $zone = new Attribute('data-k-zone', [$this->zoneName($value, $attribute->line)], '"', $attribute->line),
+                'k:update' => $kept[] = new Attribute('data-k-update', [$this->updatedZones($lowerName, $value, $attribute->line)], '"', $attribute->line),
                 default => throw $this->error(KiooException::unknownDirective($attribute->name, self::KIOO_ATTRIBUTES), $attribute->line),
             };
         }
@@ -424,7 +439,72 @@ final class TemplateParser
             throw $this->error(KiooException::directiveNeedsClosingTag($name), $line);
         }
 
+        if ($zone !== null) {
+            // Une zone est un morceau de page que le script remplace : il lui
+            // faut un début et une fin, et un nom qui ne désigne qu'elle.
+            if ($loop !== null) {
+                throw $this->error(KiooException::zoneInLoop($name), $line);
+            }
+
+            if (str_starts_with($lowerName, 'k:') || in_array($lowerName, self::NEVER_A_ZONE, true) || $isVoid || $selfClosing) {
+                throw $this->error(KiooException::zoneNotAllowedHere($name), $line);
+            }
+
+            if (!$closed) {
+                throw $this->error(KiooException::directiveNeedsClosingTag($name), $line);
+            }
+
+            $kept[] = $zone;
+        }
+
         return new Element($name, $kept, $children, $selfClosing, $closed, $line, $condition, $loop, $isElse);
+    }
+
+    /**
+     * k:zone="liste" : le nom d'une zone, écrit en dur.
+     *
+     * Sécurité (ADR-036) : le nom n'est jamais une expression. Un nom venu
+     * d'un visiteur pourrait désigner un morceau de page qu'on ne voulait
+     * pas remplacer.
+     */
+    private function zoneName(string $name, int $line): string
+    {
+        if (preg_match(self::ZONE_NAME, $name) !== 1 || strlen($name) > self::ZONE_NAME_MAX) {
+            throw $this->error(KiooException::invalidZoneName($name), $line);
+        }
+
+        if (isset($this->zones[$name])) {
+            throw $this->error(KiooException::duplicateZone($name, $this->zones[$name]), $line);
+        }
+
+        $this->zones[$name] = $line;
+
+        return $name;
+    }
+
+    /**
+     * k:update="liste, compteur" : les zones qu'un formulaire ou un lien met à
+     * jour. Dans la page, les noms sont séparés par des espaces.
+     */
+    private function updatedZones(string $element, string $value, int $line): string
+    {
+        if ($element !== 'form' && $element !== 'a') {
+            throw $this->error(KiooException::updateNotAllowedHere($element), $line);
+        }
+
+        $names = preg_split('/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY);
+
+        if ($names === false || $names === []) {
+            throw $this->error(KiooException::updateWithoutZone(), $line);
+        }
+
+        foreach ($names as $name) {
+            if (preg_match(self::ZONE_NAME, $name) !== 1 || strlen($name) > self::ZONE_NAME_MAX) {
+                throw $this->error(KiooException::invalidZoneName($name), $line);
+            }
+        }
+
+        return implode(' ', array_unique($names));
     }
 
     /**

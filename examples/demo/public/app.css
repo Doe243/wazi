@@ -794,3 +794,9 @@ textarea { resize: vertical; min-height: 4.5rem; }
     .hero { padding-top: 1rem; }
     .note-edition .couleurs { margin-top: .5rem; }
 }
+
+/* Une zone que wazi.js est en train de mettre à jour (aria-busy est posé par lui). */
+[data-k-zone][aria-busy="true"] {
+    opacity: .55;
+    transition: opacity .15s ease-out;
+}

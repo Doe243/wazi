@@ -106,6 +106,67 @@ final class KiooException extends \RuntimeException
         ));
     }
 
+    // ------------------------------------------------------------------
+    // Zones mises à jour : k:zone, k:update
+    // ------------------------------------------------------------------
+
+    public static function invalidZoneName(string $name): self
+    {
+        return new self(sprintf(
+            'Le nom de zone « %s » ne convient pas. Un nom de zone s\'écrit en dur, en minuscules sans accent,'
+            . ' avec des chiffres et des tirets si besoin, en quarante caractères au plus : k:zone="liste",'
+            . ' k:zone="panier-total". Ce n\'est pas une expression : pas d\'accolades, pas de variable.',
+            ValuePreview::of($name),
+        ));
+    }
+
+    public static function duplicateZone(string $name, int $firstLine): self
+    {
+        return new self(sprintf(
+            'La zone « %s » est déjà déclarée à la ligne %d de ce template. Le script ne saurait pas laquelle'
+            . ' remplacer : donnez un nom différent à chaque zone.',
+            $name,
+            $firstLine,
+        ));
+    }
+
+    public static function zoneInLoop(string $element): self
+    {
+        return new self(sprintf(
+            'La balise <%s> porte à la fois k:for et k:zone : la même zone existerait une fois par tour de'
+            . ' boucle. Mettez k:zone sur la balise qui entoure la boucle : <ul k:zone="liste"><li k:for="...">.',
+            $element,
+        ));
+    }
+
+    public static function zoneNotAllowedHere(string $element): self
+    {
+        return new self(sprintf(
+            'La balise <%s> ne peut pas être une zone. Une zone est un morceau visible de la page, avec un début'
+            . ' et une fin : mettez k:zone sur un <div>, un <section>, un <ul>, un <p>... Pour changer toute la'
+            . ' page, un lien ordinaire suffit.',
+            $element,
+        ));
+    }
+
+    public static function updateNotAllowedHere(string $element): self
+    {
+        return new self(sprintf(
+            'k:update est écrit sur une balise <%s>. Il ne se met que sur un formulaire ou un lien, car ce sont'
+            . ' eux qui demandent une page : <form method="post" action="/notes" k:update="liste">,'
+            . ' <a href="/notes?page=2" k:update="liste">.',
+            $element,
+        ));
+    }
+
+    public static function updateWithoutZone(): self
+    {
+        return new self(
+            'k:update ne nomme aucune zone. Écrivez le nom des zones à mettre à jour, séparés par des virgules :'
+            . ' k:update="liste, compteur". Chaque nom est celui d\'un k:zone de la page.',
+        );
+    }
+
     public static function bracesInDirective(string $directive): self
     {
         return new self(sprintf(

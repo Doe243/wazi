@@ -36,6 +36,7 @@ examples/demo/
 │   ├── app.css              Les styles, thème clair et thème sombre
 │   ├── app.js               Le script du site : thème, compteur, confirmation, épingle
 │   ├── theme.js             Applique le thème choisi avant l'affichage de la page
+│   ├── wazi.js              Le script de Wazi, installé par « wazi zones:install »
 │   └── icones.svg           Les icônes, réunies dans un seul fichier
 ├── src/                     Le code de l'application
 │   ├── Carnet.php           Le service qui range les notes (il ne sait rien du web)
@@ -76,6 +77,7 @@ Quand vous envoyez le formulaire « Nouvelle note » :
 | Se connecter en cochant « Se souvenir de moi » | Le cookie de session reçoit une durée de 30 jours | `src/ConnexionController.php` |
 | Écrire `<script>alert(1)</script>` dans une note | Le texte s'affiche tel quel, rien ne s'exécute | `views/notes/liste.kioo` |
 | Connecté en tant qu'Alice, ouvrir `/notes/4` (une note de Bob) | « Note introuvable » | `src/Carnet.php` |
+| Ajouter une note, l'onglet « Réseau » du navigateur ouvert | La page n'est pas rechargée : seules les zones nommées par `k:update` sont remplacées | `views/notes/liste.kioo`, `public/wazi.js` |
 | Cliquer sur l'épingle d'une note | La note est épinglée sans recharger la page | `public/app.js` |
 | Chercher un mot, puis regarder l'adresse | La recherche est un formulaire GET : elle part dans l'adresse (`/notes?q=pain`) | `views/notes/liste.kioo` |
 | Choisir une couleur pour une note | Seules les couleurs d'une liste sont acceptées ; toute autre valeur est ignorée | `src/Carnet.php` |
