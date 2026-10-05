@@ -15,7 +15,6 @@
 
 declare(strict_types=1);
 
-use Demo\Carnet;
 use Demo\ConnexionController;
 use Demo\Filtres;
 use Demo\NoteController;
@@ -23,6 +22,7 @@ use Demo\PageController;
 use Demo\Visiteur;
 use Demo\WebhookController;
 use Wazi\Config\Config;
+use Wazi\Database\Database;
 use Wazi\Http\ServerRequestCreator;
 use Wazi\Kernel\Kernel;
 use Wazi\View\Kioo;
@@ -56,10 +56,21 @@ $app = new Kernel(
 );
 
 // 3. Les services. Le conteneur sait fabriquer seul un objet dont le
-//    constructeur ne demande que d'autres objets. Le Carnet et le
-//    WebhookController demandent aussi un texte (un chemin, un secret) : on
-//    explique donc comment les fabriquer.
-$app->container->set(Carnet::class, static fn(): Carnet => new Carnet(__DIR__ . '/var/notes.json'));
+//    constructeur ne demande que d'autres objets : le Carnet, par exemple,
+//    qui ne demande que la base de données. La base et le WebhookController
+//    demandent aussi un texte (une adresse, un secret) : on explique donc
+//    comment les fabriquer.
+//
+//    La base de données : sans réglage, un fichier SQLite dans var/. La
+//    connexion ne s'ouvre qu'à la première requête.
+//
+//    withTracer($app->tracer) : en mode développement, les requêtes SQL de
+//    chaque page s'affichent dans la barre de débogage, en bas de l'écran.
+//    En production, $app->tracer vaut null : rien n'est signalé.
+$app->container->set(Database::class, static fn(): Database => Database::fromUrl(
+    $config->string('DATABASE_URL', 'sqlite:var/demo.sqlite'),
+    __DIR__,
+)->withTracer($app->tracer));
 $app->container->set(
     WebhookController::class,
     static fn(): WebhookController => new WebhookController($config->string('DEMO_WEBHOOK_SECRET', '')),

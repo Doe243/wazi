@@ -11,10 +11,13 @@ Depuis le dossier du framework :
 ```bash
 composer install
 cd examples/demo
+wazi db:migrate    # une fois : crée la base de données et ses premières notes
 wazi serve
 ```
 
 Puis ouvrez http://localhost:8000. Deux comptes existent : `alice` et `bob`, mot de passe `wazi`.
+
+`wazi db:migrate` crée le fichier `var/demo.sqlite` à partir des fichiers du dossier `migrations/`. Si vous l'oubliez, la page des notes vous le rappelle : « Cette table n'existe pas (encore). Avez-vous lancé wazi db:migrate ? ». Pour repartir de zéro, supprimez `var/demo.sqlite` et relancez la commande.
 
 Si votre terminal ne connaît pas `wazi`, tapez `php wazi serve` : c'est le même fichier qui s'exécute. Pour voir les routes de la démonstration : `wazi routes`.
 
@@ -48,7 +51,8 @@ examples/demo/
 │   ├── base.kioo            La mise en page commune
 │   ├── partiels/            Les morceaux inclus par d'autres vues
 │   └── ...
-├── var/                     Créé au premier lancement : sessions et notes
+├── migrations/              La structure de la base, pas à pas : des fichiers SQL
+├── var/                     Créé au premier lancement : sessions et base de données
 └── .env.example             Les réglages, à copier sous le nom .env
 ```
 
@@ -61,7 +65,7 @@ Quand vous envoyez le formulaire « Nouvelle note » :
 3. Le routeur trouve la route `POST /notes`, écrite au-dessus de `NoteController::ajouter()`.
 4. Wazi vérifie que le formulaire porte le bon jeton. Sinon : 403, et rien d'autre ne s'exécute.
 5. `ConnexionRequise` vérifie qu'un visiteur est connecté. Sinon : redirection vers `/connexion`.
-6. Le conteneur fabrique `NoteController`, en lui fournissant le `Carnet`, les `Pages`, la `Session`.
+6. Le conteneur fabrique `NoteController`, en lui fournissant le `Carnet` (qui reçoit lui-même la base de données), le moteur de templates et la `Session`.
 7. `ajouter()` vérifie le texte, l'enregistre, note le message « Note ajoutée. », et redirige.
 8. La page suivante affiche le message, une seule fois.
 
@@ -101,5 +105,5 @@ Elle montre Wazi, pas un site prêt à mettre en ligne.
 
 - **Les comptes sont écrits dans le code**, avec le même mot de passe. Un vrai site les range dans une base de données.
 - **Le nombre d'essais de connexion n'est pas limité.** Un vrai site doit ralentir ou bloquer quelqu'un qui essaie des milliers de mots de passe.
-- **Les notes sont dans un fichier JSON.** Cela suffit pour quelques notes ; le composant de base de données de Wazi arrive dans la version 0.4.
+- **La base est un fichier SQLite.** C'est parfait pour une démonstration et pour un site modeste ; un site plus fréquenté passera à MySQL ou PostgreSQL en changeant un seul réglage, `DATABASE_URL`.
 - **Les classes sont chargées une à une** dans `app.php`. Dans un vrai projet, Composer s'en charge.

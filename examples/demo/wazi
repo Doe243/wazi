@@ -7,6 +7,8 @@
  *     wazi                 la liste des commandes
  *     wazi serve           lance la démonstration sur votre ordinateur
  *     wazi routes          liste ses routes
+ *     wazi db:migrate      crée la table des notes, à lancer une fois avant de commencer
+ *     wazi db:status       montre les migrations faites et celles à faire
  *     wazi explain /notes/3    explique ce qu'une adresse traverse
  *
  * À taper depuis ce dossier (examples/demo). Si la commande « wazi » n'est
@@ -18,6 +20,10 @@ declare(strict_types=1);
 use Wazi\Console\Application;
 use Wazi\Console\Command\ServeCommand;
 use Wazi\Console\Output;
+use Wazi\Database\Database;
+use Wazi\Database\Migrator;
+use Wazi\Kernel\Command\DbMigrateCommand;
+use Wazi\Kernel\Command\DbStatusCommand;
 use Wazi\Kernel\Command\ExplainCommand;
 use Wazi\Kernel\Command\RoutesCommand;
 use Wazi\Kernel\Command\ViewsCompileCommand;
@@ -47,5 +53,10 @@ $console->add(new ServeCommand(__DIR__));
 $console->add(new RoutesCommand($app->router));
 $console->add(new ExplainCommand($app));
 $console->add(new ViewsCompileCommand($app->container->get(Kioo::class)));
+
+// La base de données : les migrations sont les fichiers du dossier migrations/.
+$migrator = new Migrator($app->container->get(Database::class), __DIR__ . '/migrations');
+$console->add(new DbMigrateCommand($migrator));
+$console->add(new DbStatusCommand($migrator));
 
 exit($console->run($argv));

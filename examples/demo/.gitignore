@@ -1,6 +1,6 @@
 # Les réglages propres à chaque installation, et leurs secrets.
 /.env
-# Les sessions et les notes : des données, pas du code.
+# Les sessions et la base de données : des données, pas du code.
 /var/
 # Les templates préparés par « wazi views:compile ».
 /build/

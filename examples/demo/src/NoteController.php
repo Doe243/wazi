@@ -153,11 +153,17 @@ final readonly class NoteController
         $importantesSeules = ($parametres['filtre'] ?? null) === 'importantes';
 
         $toutes = $this->carnet->de($this->auteur());
+        // Sans recherche ni filtre, les notes à afficher sont toutes les notes :
+        // inutile de les redemander à la base. (C'est la barre de débogage qui
+        // a montré la même requête lancée deux fois.)
+        $notes = $recherche === '' && !$importantesSeules
+            ? $toutes
+            : $this->carnet->de($this->auteur(), $recherche, $importantesSeules);
 
         return $this->kioo->page('notes/liste', [
             // Pour la mise en page : le lien « Mes notes » du bandeau est marqué.
             'page' => 'notes',
-            'notes' => $this->carnet->de($this->auteur(), $recherche, $importantesSeules),
+            'notes' => $notes,
             'total' => count($toutes),
             'importantes' => count(array_filter($toutes, static fn(array $note): bool => $note['importante'])),
             'recherche' => $recherche,
