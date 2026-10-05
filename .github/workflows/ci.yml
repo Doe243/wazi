@@ -6,6 +6,15 @@ on:
     branches: [main]
   pull_request:
 
+# Cette CI ne fait que lire le dépôt : elle n'a le droit de rien écrire.
+permissions:
+  contents: read
+
+# Un nouvel envoi sur la même branche arrête la vérification précédente.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   qualite:
     name: PHP ${{ matrix.php }}
@@ -51,6 +60,9 @@ jobs:
           extensions: mbstring, pdo_sqlite, pdo_mysql, pdo_pgsql
           coverage: none
           tools: composer
+
+      - name: Vérifier composer.json
+        run: composer validate --strict
 
       - name: Installer les dépendances
         run: composer install --no-interaction --no-progress --prefer-dist

@@ -1,0 +1,72 @@
+name: Publication
+
+# Quand un tag de version est poussé (0.5.0), crée la page de publication
+# correspondante sur GitHub, avec le texte du journal des modifications.
+#
+# Le tag lui-même se pose à la main, sur main, une fois la version prête
+# (docs/decisions/0033-versions-et-publications.md). Ce fichier ne fait que
+# l'annoncer.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  # Pour créer après coup la page d'un tag déjà poussé.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Le tag à publier, par exemple 0.4.0'
+        required: true
+
+# Créer une publication, c'est écrire dans le dépôt : ce droit n'est donné qu'ici.
+permissions:
+  contents: write
+
+jobs:
+  publication:
+    name: Page de publication
+    runs-on: ubuntu-latest
+    steps:
+      # Pour un tag qu'on vient de pousser, le journal est lu dans ce tag.
+      # Lancée à la main pour un tag ancien, la publication lit le journal de
+      # la branche principale, qui décrit toutes les versions.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.ref_name }}
+          # Les tags sont nécessaires pour vérifier que celui qu'on publie existe.
+          fetch-tags: true
+
+      - name: Extraire les notes de la version depuis le journal
+        env:
+          VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # Sécurité : la version arrive de l'extérieur du script. Elle n'est
+          # acceptée que sous la forme d'un numéro : 0.5.0.
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::« $VERSION » n'est pas un numéro de version."
+            exit 1
+          fi
+
+          # Tout ce qui se trouve entre le titre « ## 0.5.0 ... » et le titre suivant.
+          awk -v version="$VERSION" '
+            /^## / { dedans = (index($0, "## " version " ") == 1 || $0 == "## " version) }
+            dedans && !/^## / { print }
+          ' CHANGELOG.md > notes.md
+
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::Le journal des modifications n a pas de section pour la version $VERSION."
+            exit 1
+          fi
+
+          cat notes.md
+
+      - name: Créer la page de publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # Si la page existe déjà, on met son texte à jour au lieu d'échouer.
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            gh release edit "$VERSION" --title "Wazi $VERSION" --notes-file notes.md
+          else
+            gh release create "$VERSION" --title "Wazi $VERSION" --notes-file notes.md --verify-tag
+          fi
