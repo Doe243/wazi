@@ -23,7 +23,7 @@ Wazi existe pour qu'un débutant **comprenne** ce qu'il utilise. Huit principes 
 Il faut PHP 8.5 et Composer.
 
 ```bash
-git clone https://github.com/Doe243/wazi.git
+git clone https://github.com/wazi-php/wazi.git
 cd wazi
 composer install
 composer check
