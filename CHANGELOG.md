@@ -10,6 +10,12 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 
 ## À venir
 
+Rien pour l'instant.
+
+## 0.5.0 « Ça se voit » — 2026-10-05
+
+Rien à modifier dans un projet créé avec la 0.4.
+
 ### Ajouté
 - **Barre de débogage** (décision 035) : en mode développement, en bas des pages HTML, elle montre la requête, la route et le code exécuté, les middlewares, les templates et leur durée, le nom des clés de la session. Lecture seule, sans adresse à elle ni historique ; écrite seulement pour une requête venue de la machine elle-même, sans proxy, sous un nom local ; aucune valeur sensible n'est collectée. `new Kernel(debugBar: false)` pour s'en passer.
 - `Contracts\Tracer` : un composant signale ce qu'il fait sans connaître la barre ; Kioo signale chaque page écrite.

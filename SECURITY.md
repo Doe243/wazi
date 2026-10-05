@@ -14,12 +14,12 @@ Nous nous engageons à :
 
 ## Versions prises en charge
 
-Tant que la version 1.0 n'est pas publiée, seule la dernière version mineure reçoit des correctifs de sécurité. Un correctif sort sous la forme d'une version corrective (`0.4.1`), toujours sans risque à installer : voir le [journal des modifications](CHANGELOG.md).
+Tant que la version 1.0 n'est pas publiée, seule la dernière version mineure reçoit des correctifs de sécurité. Un correctif sort sous la forme d'une version corrective (`0.5.1`), toujours sans risque à installer : voir le [journal des modifications](CHANGELOG.md).
 
 | Version | Correctifs de sécurité |
 | --- | --- |
-| 0.4.x | Oui |
-| 0.3.x et antérieures | Non |
+| 0.5.x | Oui |
+| 0.4.x et antérieures | Non |
 
 ## Nos engagements de conception
 
