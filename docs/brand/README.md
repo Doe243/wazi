@@ -11,6 +11,7 @@ Piste retenue le 3 octobre 2026 : **« Verre et lumière »**. Wazi signifie « 
 | [`wazi-icon.svg`](wazi-icon.svg) | L'icône carrée : onglet du navigateur, avatar |
 | [`kioo-mark.svg`](kioo-mark.svg) | Le signe de Kioo, sur fond clair |
 | [`kioo-mark-dark.svg`](kioo-mark-dark.svg) | Le signe de Kioo, sur fond sombre |
+| [`social.png`](social.png) | L'aperçu affiché quand un lien vers le dépôt est partagé (1280 × 640) |
 
 **Le signe de Wazi** : deux panneaux de verre qui se recouvrent et forment un W. Le panneau de gauche est opaque, celui de droite translucide : on voit à travers.
 

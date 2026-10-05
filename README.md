@@ -1,16 +1,28 @@
-<p><img src="docs/brand/wazi-mark.svg" alt="" width="76" height="56"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wazi-mark-dark.svg">
+    <img src="docs/brand/wazi-mark.svg" alt="Wazi" width="114" height="84">
+  </picture>
+</p>
 
-# Wazi
+<h1 align="center">Wazi</h1>
 
-> *Wazi* : « clair, ouvert, évident » en swahili.
+<p align="center"><em>« clair, ouvert, évident » en swahili</em></p>
 
-[![CI](https://github.com/Doe243/wazi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Doe243/wazi/actions/workflows/ci.yml)
-![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-4f5b93)
-![Licence MIT](https://img.shields.io/badge/licence-MIT-2ea44f)
+<p align="center">
+  <a href="https://github.com/Doe243/wazi/actions/workflows/ci.yml"><img src="https://github.com/Doe243/wazi/actions/workflows/ci.yml/badge.svg?branch=main" alt="Intégration continue"></a>
+  <a href="https://github.com/Doe243/wazi/releases"><img src="https://img.shields.io/github/v/tag/Doe243/wazi?label=version&color=0B6E70" alt="Dernière version"></a>
+  <img src="https://img.shields.io/badge/PHP-8.5%2B-4f5b93" alt="PHP 8.5 ou plus">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2ea44f" alt="Licence MIT"></a>
+</p>
 
 Wazi est un framework PHP pensé pour les développeurs qui veulent **comprendre** ce qu'ils utilisent tout en construisant de vraies applications. Pas de magie cachée : chaque comportement se suit dans l'éditeur par un clic, chaque erreur explique sa cause et la solution.
 
-> **Version 0.4 « Ça se construit ».** Wazi est en construction : ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0. Ce qui change d'une version à l'autre est dans le [journal des modifications](CHANGELOG.md).
+<p align="center">
+  <img src="docs/images/demonstration.png" alt="L'application de démonstration de Wazi : un carnet de notes, avec en bas de page la barre de débogage qui montre la route, les templates et les requêtes de la page." width="820">
+</p>
+
+> **Wazi est en construction.**  Ce qui est décrit ici fonctionne et est testé, mais l'API peut encore changer avant la version 1.0. Ce qui change d'une version à l'autre est dans le [journal des modifications](CHANGELOG.md).
 
 ## Ce que fait Wazi
 
@@ -66,6 +78,14 @@ final readonly class NoteController
     }
 }
 ```
+
+## La console
+
+<p align="center">
+  <img src="docs/images/console.png" alt="La console de Wazi : son écran d'accueil liste les commandes par famille, et « wazi explain --help » détaille une commande avec ses exemples." width="820">
+</p>
+
+`wazi` lance le site, liste les routes, explique ce qu'une adresse traverse, crée un contrôleur ou une migration. Chaque commande s'explique avec `--help`.
 
 ## Essayer
 
@@ -150,7 +170,7 @@ Wazi applique une sécurité stricte par défaut. Pour signaler une faille, voir
 
 ## Contribuer
 
-Le projet travaille sur des branches, fusionnées dans `main` par des demandes de fusion. Tout est expliqué dans [CONTRIBUTING.md](CONTRIBUTING.md).
+Le projet travaille sur des branches, fusionnées dans `main` par des demandes de fusion. Tout est expliqué dans [CONTRIBUTING.md](CONTRIBUTING.md). En participant, vous acceptez son [code de conduite](CODE_OF_CONDUCT.md).
 
 ```bash
 composer check   # audit des dépendances, style, analyse statique, couches, tests

@@ -2,6 +2,8 @@
 
 Merci de vouloir aider. Ce document dit comment le projet travaille, pour qu'une contribution arrive vite au bout.
 
+En participant, vous acceptez le [code de conduite](CODE_OF_CONDUCT.md) du projet.
+
 ## Avant de commencer
 
 - **Un bogue ?** Ouvrez une issue avec de quoi le reproduire : la version de Wazi, celle de PHP, le code le plus court qui montre le problème.
