@@ -219,7 +219,8 @@ final class Application
         foreach ($command->arguments() as $argument) {
             // Un argument facultatif s'écrit entre crochets, par convention.
             $usage .= $argument->default === null ? ' <' . $argument->name . '>' : ' [' . $argument->name . ']';
-            $arguments[$argument->name] = $argument->description . ($argument->default !== null ? ' (par défaut : ' . $argument->default . ')' : '');
+            // Un défaut vide veut dire « facultatif » : il n'y a rien à montrer.
+            $arguments[$argument->name] = $argument->description . ($argument->default !== null && $argument->default !== '' ? ' (par défaut : ' . $argument->default . ')' : '');
         }
 
         foreach ($command->options() as $option) {

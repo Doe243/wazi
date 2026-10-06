@@ -152,3 +152,5 @@ Kioo les vérifie à la lecture du template, et explique ce qui ne va pas.
 ## Voir un exemple complet
 
 La page des notes de [la démonstration](../../examples/demo/README.md) utilise six zones : ajout, refus, recherche, filtres, suppression avec confirmation. Ouvrez `examples/demo/views/notes/liste.kioo`, puis l'onglet « Réseau » de votre navigateur pendant que vous ajoutez une note.
+
+Suite : [Une application installable](17-pwa.md).
