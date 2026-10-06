@@ -7,17 +7,27 @@
 
 ## Installer
 
-Wazi n'est pas encore publié sur Packagist, l'annuaire de Composer. En attendant, on récupère le dépôt :
+Deux façons de commencer.
+
+**Un projet complet**, déjà rangé, avec trois pages à modifier :
 
 ```bash
-git clone https://github.com/wazi-php/wazi.git
-cd wazi
-composer install
+composer create-project wazi/skeleton mon-projet
+cd mon-projet
+php wazi serve
+```
+
+Ouvrez http://localhost:8000. C'est le chemin le plus court ; la suite de cette page explique ce que vous y trouvez.
+
+**Un seul fichier**, pour comprendre pièce par pièce. Dans un dossier vide :
+
+```bash
+composer require wazi/framework
 ```
 
 ## Une première page
 
-Créez un fichier `bonjour.php` dans le dossier `examples/` :
+Dans ce dossier, créez un fichier `bonjour.php` :
 
 ```php
 <?php
@@ -27,7 +37,7 @@ declare(strict_types=1);
 use Wazi\Http\Response;
 use Wazi\Kernel\Kernel;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 
 $app = new Kernel();
 
@@ -41,7 +51,7 @@ $app->run();
 Lancez le serveur de développement fourni avec PHP :
 
 ```bash
-php -S localhost:8000 examples/bonjour.php
+php -S localhost:8000 bonjour.php
 ```
 
 Ouvrez http://localhost:8000 : la page s'affiche. Pour arrêter le serveur : `Ctrl+C`.

@@ -10,6 +10,15 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 
 ## À venir
 
+Rien pour l'instant.
+
+## 0.6.0 « Ça s'installe » — 2026-10-06
+
+Wazi est publié sur Packagist : un projet se crée par `composer create-project wazi/skeleton mon-projet`.
+
+### À modifier dans votre projet
+- Rien n'est cassé. Pour profiter des nouvelles commandes, déclarez-les dans le fichier `wazi` de votre projet : `$console->add(new ZonesInstallCommand(__DIR__));` et `$console->add(new MakePwaCommand(__DIR__));`.
+
 ### Ajouté
 - **Zones mises à jour** (décision 036) : dans un template, `k:zone="liste"` marque un morceau de page, et `k:update="liste"`, sur un formulaire ou un lien, le met à jour sans recharger la page. Le contrôleur ne change pas : il répond la même page, dont le script `wazi.js` ne garde que les zones nommées. Sans JavaScript, tout marche comme avant.
 - Commande `wazi zones:install` : installe `public/wazi.js`, ou le met à jour. À déclarer dans le fichier `wazi` du projet : `$console->add(new ZonesInstallCommand(__DIR__));`.

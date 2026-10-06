@@ -91,7 +91,17 @@ final readonly class NoteController
 
 ## Essayer
 
-Il faut PHP 8.5 et Composer. Wazi n'est pas encore publié sur Packagist : pour l'instant, on l'essaie depuis ce dépôt.
+Il faut PHP 8.5 et Composer. Un projet se crée en une commande, à partir du [projet de départ](https://github.com/wazi-php/wazi-skeleton) :
+
+```bash
+composer create-project wazi/skeleton mon-projet
+cd mon-projet
+php wazi serve
+```
+
+Puis ouvrez http://localhost:8000 : un site de trois pages, prêt à modifier.
+
+Pour lire le framework et ses exemples, récupérez ce dépôt :
 
 ```bash
 git clone https://github.com/wazi-php/wazi.git
@@ -108,12 +118,6 @@ cd examples/demo && php wazi serve                  # une application complète,
 ```
 
 La troisième, [la démonstration](examples/demo/README.md), montre une connexion, un carnet de notes par utilisateur, des formulaires protégés et des réglages.
-
-Le jour de la publication, un projet se créera en une commande, à partir du [projet de départ](https://github.com/wazi-php/wazi-skeleton) :
-
-```bash
-composer create-project wazi/skeleton mon-projet
-```
 
 ## Documentation
 

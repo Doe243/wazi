@@ -10,12 +10,23 @@
         "docs": "https://github.com/wazi-php/wazi/blob/main/docs/README.md",
         "security": "https://github.com/wazi-php/wazi/security/policy"
     },
+    "authors": [
+        {
+            "name": "René MUMBA KIBUTIKA",
+            "homepage": "https://github.com/Doe243"
+        }
+    ],
     "keywords": [
         "framework",
+        "php",
         "psr-7",
+        "psr-11",
         "psr-15",
+        "psr-17",
+        "template-engine",
         "pedagogique",
-        "wazi"
+        "wazi",
+        "kioo"
     ],
     "require": {
         "php": "^8.5",
