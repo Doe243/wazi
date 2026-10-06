@@ -14,6 +14,9 @@ Les règles complètes sont dans [la décision 033](docs/decisions/0033-versions
 - **Zones mises à jour** (décision 036) : dans un template, `k:zone="liste"` marque un morceau de page, et `k:update="liste"`, sur un formulaire ou un lien, le met à jour sans recharger la page. Le contrôleur ne change pas : il répond la même page, dont le script `wazi.js` ne garde que les zones nommées. Sans JavaScript, tout marche comme avant.
 - Commande `wazi zones:install` : installe `public/wazi.js`, ou le met à jour. À déclarer dans le fichier `wazi` du projet : `$console->add(new ZonesInstallCommand(__DIR__));`.
 - Guide : page « Les zones mises à jour ».
+- **Application installable** (décision 037) : `wazi make:pwa "Mon carnet"` crée dans `public/` le manifeste, un service worker, la page hors ligne et une icône provisoire, puis affiche les trois lignes à ajouter à la mise en page. Le service worker ne garde aucune page et demande toujours au réseau d'abord. À déclarer dans le fichier `wazi` du projet : `$console->add(new MakePwaCommand(__DIR__));`.
+- Guide : page « Une application installable ».
+- Console : l'aide d'une commande n'affiche plus « (par défaut : ) » pour un argument facultatif sans valeur par défaut.
 - Démonstration : la page des notes ajoute, cherche, filtre et supprime sans se recharger.
 
 ## 0.5.0 « Ça se voit » — 2026-10-05

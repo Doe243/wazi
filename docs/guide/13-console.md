@@ -59,6 +59,7 @@ Commandes :
  make
   make:controller  Crée un contrôleur et sa page, commentés et prêts à modifier.
   make:migration   Crée un fichier de migration : un changement de la structure de la base, en SQL.
+  make:pwa         Rend le site installable comme une application : manifeste, service worker, page hors ligne.
  views
   views:compile    Prépare les templates à l'avance, pour la mise en ligne.
  zones
@@ -248,6 +249,14 @@ Trois règles, pour qu'elle ne puisse rien abîmer :
 - **elle ne remplace jamais un fichier existant.** Si l'un des deux existe déjà, elle ne crée rien et vous le dit ;
 - **elle ne modifie pas `app.php`.** Elle vous donne la ligne à y ajouter : aucune route n'apparaît sans que vous l'ayez déclarée ;
 - **le nom est un nom de classe** : une majuscule, puis des lettres sans accent et des chiffres. `BlogPost` donne l'adresse `/blog-post`.
+
+## Rendre le site installable
+
+```bash
+wazi make:pwa "Mon carnet"
+```
+
+Cette commande crée ce qu'il faut pour que le site s'installe comme une application, avec une page affichée quand le réseau manque. Elle est expliquée dans [Une application installable](17-pwa.md).
 
 ## Comment s'écrit une commande
 
