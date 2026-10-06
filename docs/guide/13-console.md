@@ -16,8 +16,6 @@ Pour que votre terminal connaisse le mot `wazi`, la commande s'installe une fois
 composer global require wazi/framework
 ```
 
-> Wazi n'est pas encore publié sur Packagist : cette ligne fonctionnera à ce moment-là. D'ici là, utilisez l'écriture ci-dessous.
-
 Composer range ses commandes globales dans un dossier à lui. Si votre terminal répond que `wazi` est introuvable, c'est que ce dossier n'est pas dans votre `PATH` : `composer global config bin-dir --absolute` vous donne son chemin, à ajouter au `PATH` de votre système.
 
 **Sans installation**, tout fonctionne quand même. Chaque projet contient un fichier `wazi`, à sa racine, et vous pouvez le lancer avec PHP :
@@ -40,7 +38,7 @@ Sans rien d'autre, la console affiche son écran d'accueil : la version de Wazi,
 ╚███╔███╔╝██║  ██║███████╗██║
  ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝
 
-Wazi 0.5.0 · le framework PHP où tout est clair
+Wazi 0.6.0 · le framework PHP où tout est clair
 
 Utilisation :
   wazi <commande> [arguments] [--options]
